@@ -1,8 +1,12 @@
-name: Build and publish plugin release
+name: Validate and publish Varsity Jackets release
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'update.json'
+      - 'releases/**'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
@@ -18,53 +22,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Expand bootstrap source when present
+      - name: Read update manifest
+        id: manifest
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          m = json.loads(Path('update.json').read_text())
+          version = str(m['version']).lstrip('vV')
+          package = str(m['package'])
+          filename = package.rsplit('/', 1)[-1]
+          path = Path('releases') / filename
+          if not path.is_file():
+              raise SystemExit(f'Manifest package not found in repository: {path}')
+          print(f'version={version}')
+          print(f'tag=v{version}')
+          print(f'zip={path}')
+          print('prerelease=' + ('true' if m.get('prerelease') else 'false'))
+          PY
 
-          if compgen -G 'bootstrap/part-*.b64' > /dev/null; then
-            echo 'Reassembling bootstrap package...'
-            cat bootstrap/part-*.b64 | base64 --decode > all-star-varsity-jackets-source.zip
-          fi
-
-          if [ -f all-star-varsity-jackets-source.zip ]; then
-            echo 'Publishing plugin source into the repository...'
-            rm -rf all-star-varsity-jackets
-            unzip -q all-star-varsity-jackets-source.zip
-            rm -f all-star-varsity-jackets-source.zip
-            rm -rf bootstrap
-
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -A
-            if ! git diff --cached --quiet; then
-              git commit -m 'Publish All Star Varsity Jackets plugin source'
-              git push origin HEAD:main
-            fi
-          fi
-
-      - name: Read plugin version
-        id: version
+      - name: Validate ZIP structure
         shell: bash
         run: |
           set -euo pipefail
-          FILE='all-star-varsity-jackets/all-star-varsity-jackets.php'
-          VERSION=$(sed -nE "s/^ \* Version: (.+)$/\1/p" "$FILE" | head -n1 | tr -d '\r')
-          if [ -z "$VERSION" ]; then
-            echo 'Could not determine plugin version.' >&2
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "$VERSION" == *-* ]]; then
-            echo 'prerelease=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'prerelease=false' >> "$GITHUB_OUTPUT"
-          fi
+          ZIP='${{ steps.manifest.outputs.zip }}'
+          unzip -t "$ZIP"
+          rm -rf /tmp/asevj-release
+          mkdir -p /tmp/asevj-release
+          unzip -q "$ZIP" -d /tmp/asevj-release
+          test -f /tmp/asevj-release/all-star-varsity-jackets/all-star-varsity-jackets.php
 
       - name: Validate PHP syntax
         shell: bash
@@ -72,7 +61,7 @@ jobs:
           set -euo pipefail
           while IFS= read -r -d '' file; do
             php -l "$file"
-          done < <(find all-star-varsity-jackets -type f -name '*.php' -print0)
+          done < <(find /tmp/asevj-release/all-star-varsity-jackets -type f -name '*.php' -print0)
 
       - name: Validate block JSON
         shell: bash
@@ -80,60 +69,52 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json, pathlib
-          for path in pathlib.Path('all-star-varsity-jackets/blocks').glob('*/block.json'):
+          root = pathlib.Path('/tmp/asevj-release/all-star-varsity-jackets/blocks')
+          for path in root.glob('*/block.json'):
               json.loads(path.read_text())
               print('OK', path)
           PY
 
-      - name: Build WordPress ZIP
-        id: package
+      - name: Confirm package version
         shell: bash
         run: |
           set -euo pipefail
-          VERSION='${{ steps.version.outputs.version }}'
-          ZIP="all-star-varsity-jackets-${VERSION}.zip"
-          rm -f "$ZIP"
-          zip -r "$ZIP" all-star-varsity-jackets \
-            -x '*/.DS_Store' '*/Thumbs.db' '*/node_modules/*' '*/.git/*'
-          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          EXPECTED='${{ steps.manifest.outputs.version }}'
+          FILE='/tmp/asevj-release/all-star-varsity-jackets/all-star-varsity-jackets.php'
+          ACTUAL=$(sed -nE 's/^ \* Version: (.+)$/\1/p' "$FILE" | head -n1 | tr -d '\r')
+          test "$ACTUAL" = "$EXPECTED" || { echo "Manifest says $EXPECTED but package says $ACTUAL" >&2; exit 1; }
 
       - name: Generate release notes
         shell: bash
         run: |
           set -euo pipefail
-          VERSION='${{ steps.version.outputs.version }}'
-          {
-            echo "## All Star Varsity Jackets $VERSION"
-            echo
-            echo 'Automated WordPress plugin package built from the main branch.'
-            echo
-            echo '### Install / update'
-            echo 'WordPress installations running All Star Varsity Jackets can receive this release through the built-in GitHub updater.'
-            echo
-            if [ -f all-star-varsity-jackets/CHANGELOG.md ]; then
-              echo '### Changelog'
-              echo
-              cat all-star-varsity-jackets/CHANGELOG.md
-            fi
-          } > RELEASE_NOTES.md
+          python - <<'PY' > RELEASE_NOTES.md
+          import json
+          from pathlib import Path
+          m = json.loads(Path('update.json').read_text())
+          print(f"## {m.get('name', m['version'])}")
+          print()
+          print(m.get('body', 'Automated All Star Varsity Jackets release.'))
+          print()
+          print('WordPress installations can receive this build through the plugin’s GitHub updater.')
+          PY
 
-      - name: Create or update GitHub Release
+      - name: Create or refresh GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          ZIP: ${{ steps.package.outputs.zip }}
-          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          TAG: ${{ steps.manifest.outputs.tag }}
+          ZIP: ${{ steps.manifest.outputs.zip }}
+          PRERELEASE: ${{ steps.manifest.outputs.prerelease }}
         shell: bash
         run: |
           set -euo pipefail
-          TARGET_SHA=$(git rev-parse HEAD)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ZIP" --clobber
           else
             EXTRA=()
             if [ "$PRERELEASE" = 'true' ]; then EXTRA+=(--prerelease); fi
             gh release create "$TAG" "$ZIP" \
-              --target "$TARGET_SHA" \
+              --target "$GITHUB_SHA" \
               --title "$TAG" \
               --notes-file RELEASE_NOTES.md \
               "${EXTRA[@]}"
