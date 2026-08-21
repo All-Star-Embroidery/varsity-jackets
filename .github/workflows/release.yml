@@ -1,0 +1,140 @@
+name: Build and publish plugin release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ase-varsity-jackets-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Expand bootstrap source when present
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if compgen -G 'bootstrap/part-*.b64' > /dev/null; then
+            echo 'Reassembling bootstrap package...'
+            cat bootstrap/part-*.b64 | base64 --decode > all-star-varsity-jackets-source.zip
+          fi
+
+          if [ -f all-star-varsity-jackets-source.zip ]; then
+            echo 'Publishing plugin source into the repository...'
+            rm -rf all-star-varsity-jackets
+            unzip -q all-star-varsity-jackets-source.zip
+            rm -f all-star-varsity-jackets-source.zip
+            rm -rf bootstrap
+
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m 'Publish All Star Varsity Jackets plugin source'
+              git push origin HEAD:main
+            fi
+          fi
+
+      - name: Read plugin version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE='all-star-varsity-jackets/all-star-varsity-jackets.php'
+          VERSION=$(sed -nE "s/^ \* Version: (.+)$/\1/p" "$FILE" | head -n1 | tr -d '\r')
+          if [ -z "$VERSION" ]; then
+            echo 'Could not determine plugin version.' >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo 'prerelease=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'prerelease=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+          done < <(find all-star-varsity-jackets -type f -name '*.php' -print0)
+
+      - name: Validate block JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, pathlib
+          for path in pathlib.Path('all-star-varsity-jackets/blocks').glob('*/block.json'):
+              json.loads(path.read_text())
+              print('OK', path)
+          PY
+
+      - name: Build WordPress ZIP
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+          ZIP="all-star-varsity-jackets-${VERSION}.zip"
+          rm -f "$ZIP"
+          zip -r "$ZIP" all-star-varsity-jackets \
+            -x '*/.DS_Store' '*/Thumbs.db' '*/node_modules/*' '*/.git/*'
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+          {
+            echo "## All Star Varsity Jackets $VERSION"
+            echo
+            echo 'Automated WordPress plugin package built from the main branch.'
+            echo
+            echo '### Install / update'
+            echo 'WordPress installations running All Star Varsity Jackets can receive this release through the built-in GitHub updater.'
+            echo
+            if [ -f all-star-varsity-jackets/CHANGELOG.md ]; then
+              echo '### Changelog'
+              echo
+              cat all-star-varsity-jackets/CHANGELOG.md
+            fi
+          } > RELEASE_NOTES.md
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          ZIP: ${{ steps.package.outputs.zip }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_SHA=$(git rev-parse HEAD)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+          else
+            EXTRA=()
+            if [ "$PRERELEASE" = 'true' ]; then EXTRA+=(--prerelease); fi
+            gh release create "$TAG" "$ZIP" \
+              --target "$TARGET_SHA" \
+              --title "$TAG" \
+              --notes-file RELEASE_NOTES.md \
+              "${EXTRA[@]}"
+          fi
