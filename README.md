@@ -1,5 +1,11 @@
 # All Star Varsity Jackets
 
-Custom WordPress/Gutenberg plugin for All Star Embroidery varsity jacket browsing, school/style management, WooCommerce integration, legacy gallery import, and branded frontend blocks.
+Development and release repository for the All Star Embroidery Varsity Jackets WordPress/WooCommerce plugin.
 
-Current beta line: `0.2.0-beta.1`.
+## Update channel
+
+WordPress builds from `0.2.0-beta.5` onward read `update.json` from this repository and can install the matching ZIP in `/releases` directly. GitHub Releases remain a fallback source.
+
+Current updater line: **0.2.0-beta.5**.
+
+The repository also contains an automated release workflow for validating PHP/block JSON and producing formal GitHub Releases.
