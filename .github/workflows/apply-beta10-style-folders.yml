@@ -1,0 +1,455 @@
+name: Apply beta.10 multi-style folder support
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-beta10-style-folders.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Patch source for beta.10
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+
+          root = pathlib.Path('.')
+          old_version = '0.2.0-beta.9'
+          new_version = '0.2.0-beta.10'
+
+          # Version identity.
+          p = root / 'all-star-varsity-jackets/all-star-varsity-jackets.php'
+          s = p.read_text()
+          if old_version not in s:
+              raise SystemExit('Expected beta.9 version not found.')
+          p.write_text(s.replace(old_version, new_version))
+
+          for p in (root / 'all-star-varsity-jackets/blocks').glob('*/block.json'):
+              data = json.loads(p.read_text())
+              data['version'] = new_version
+              p.write_text(json.dumps(data, indent=2) + '\n')
+
+          p = root / 'all-star-varsity-jackets/includes/class-asevj-importer.php'
+          s = p.read_text()
+
+          # Improve importer guidance.
+          s = s.replace(
+              'Upload one ZIP containing a school CSV plus one folder per school. The importer reads the school information, recognizes each image by filename, stores the school logo and optional mascot artwork separately, uses <strong>Front</strong> as the jacket product image, and orders <strong>Back → Letter → Sleeve → Detail</strong> in the style gallery automatically.',
+              'Upload one ZIP containing a school CSV plus one folder per school. A school may contain images directly or nested <strong>Style 1 (Maroon)</strong>, <strong>Style 2 (White)</strong>, etc. folders. The importer creates each style separately, stores the school logo and optional mascot artwork once, uses <strong>Front</strong> as each style\'s jacket product image, and orders <strong>Back → Letter → Sleeve → Detail</strong> in each style gallery automatically.'
+          )
+          s = s.replace(
+              '<div><b>2</b><span><strong>Information is matched</strong><small>CSV rows match folders by School Name; existing schools are updated safely.</small></span></div>',
+              '<div><b>2</b><span><strong>Schools & styles are matched</strong><small>CSV rows match School Name; nested Style 1 (Color) folders become separate jacket styles.</small></span></div>'
+          )
+          s = s.replace(
+              '<strong>Expected filenames:</strong> <code>{School Name} Logo</code>, <code>{School Name} Mascot</code>, <code>{School Name} Front</code>, <code>{School Name} Back</code>, <code>{School Name} Letter</code>, <code>{School Name} Sleeve</code>, <code>{School Name} Detail</code>. JPG/JPEG/PNG/WEBP/GIF/AVIF are accepted. Logo and Mascot are optional.',
+              '<strong>Expected filenames:</strong> <code>{School Name} Logo</code>, <code>{School Name} Mascot</code>, and jacket roles ending in <code>Front</code>, <code>Back</code>, <code>Letter</code>, <code>Sleeve</code>, or <code>Detail</code>. Style descriptors may appear between the school name and role, such as <code>John Glenn Maroon Front.png</code>. Nested folders such as <code>John Glenn/Style 1 (Maroon)/</code> are supported. JPG/JPEG/PNG/WEBP/GIF/AVIF are accepted. Logo and Mascot are optional.'
+          )
+
+          # Replace structured importer with multi-style-aware implementation.
+          new_handle = r'''    private function handle_structured_import( ZipArchive $zip, array $rows, string $redirect ): void {
+        $entries = $this->collect_image_entries( $zip );
+        $school_level = $this->detect_school_segment( $entries );
+        $groups = $this->group_images_by_school_folder( $entries );
+        $mode = isset( $_POST['asevj_existing_mode'] ) && 'skip' === sanitize_key( (string) $_POST['asevj_existing_mode'] ) ? 'skip' : 'update';
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+        $styles_created = 0;
+        $images_created = 0;
+        $images_reused = 0;
+        $errors = [];
+        $first_school_id = 0;
+
+        foreach ( $rows as $row ) {
+            $school_name = sanitize_text_field( (string) $row['school_name'] );
+            if ( '' === $school_name ) {
+                continue;
+            }
+
+            $school_id = $this->find_school( $school_name );
+            if ( $school_id && 'skip' === $mode ) {
+                $skipped++;
+                continue;
+            }
+
+            if ( ! $school_id ) {
+                $school_id = wp_insert_post( [
+                    'post_type'   => 'asevj_school',
+                    'post_status' => 'publish',
+                    'post_title'  => $school_name,
+                    'post_name'   => sanitize_title( $school_name ),
+                ], true );
+                if ( is_wp_error( $school_id ) ) {
+                    $errors[] = $school_name . ': could not create school (' . $school_id->get_error_message() . ').';
+                    continue;
+                }
+                update_post_meta( $school_id, '_asevj_enabled', 1 );
+                $created++;
+            } else {
+                $updated++;
+            }
+
+            if ( ! $first_school_id ) {
+                $first_school_id = (int) $school_id;
+            }
+
+            $this->update_school_from_csv( (int) $school_id, $row );
+
+            $key = $this->normalize_school_key( $school_name );
+            $school_entries = $groups[ $key ] ?? [];
+            if ( ! $school_entries ) {
+                foreach ( $entries as $entry ) {
+                    if ( $this->filename_matches_school( basename( $entry['name'] ), $school_name ) ) {
+                        $school_entries[] = $entry;
+                    }
+                }
+            }
+
+            // School branding is school-level even if a Logo/Mascot file lives inside Style 1.
+            // Prefer shallower files, so John Glenn/John Glenn Logo.png wins over a copy nested in a style folder.
+            $branding_entries = $school_entries;
+            usort( $branding_entries, static fn( $a, $b ) => count( $a['parts'] ) <=> count( $b['parts'] ) );
+            $branding_roles = [];
+            foreach ( $branding_entries as $entry ) {
+                $role = $this->image_role( basename( $entry['name'] ) );
+                if ( in_array( $role, [ 'logo', 'mascot' ], true ) && ! isset( $branding_roles[ $role ] ) ) {
+                    $branding_roles[ $role ] = $entry;
+                }
+            }
+            foreach ( [ 'logo', 'mascot' ] as $role ) {
+                if ( empty( $branding_roles[ $role ] ) ) {
+                    continue;
+                }
+                $attachment = $this->import_structured_image( $zip, $branding_roles[ $role ], $school_name, $role, (int) $school_id, $images_created, $images_reused, $errors );
+                if ( ! $attachment ) {
+                    continue;
+                }
+                update_post_meta(
+                    (int) $school_id,
+                    'logo' === $role ? '_asevj_logo_id' : '_asevj_mascot_image_id',
+                    (int) $attachment
+                );
+            }
+
+            $style_groups = $this->group_school_entries_by_style( $school_entries, $school_level, $row );
+            if ( ! $style_groups ) {
+                $errors[] = $school_name . ': no jacket images were matched to a style.';
+                continue;
+            }
+
+            foreach ( $style_groups as $style_group ) {
+                $style_name = sanitize_text_field( (string) $style_group['name'] );
+                $style_key = sanitize_key( (string) $style_group['key'] );
+                $menu_order = max( 0, (int) $style_group['order'] );
+                $style_entries = (array) $style_group['entries'];
+
+                $style_id = $this->find_structured_style( (int) $school_id, $style_name, $style_key, $menu_order );
+                if ( ! $style_id ) {
+                    $style_id = wp_insert_post( [
+                        'post_type'   => 'asevj_style',
+                        'post_status' => 'publish',
+                        'post_title'  => $style_name,
+                        'menu_order'  => $menu_order,
+                    ], true );
+                    if ( is_wp_error( $style_id ) ) {
+                        $errors[] = $school_name . ' / ' . $style_name . ': could not create jacket style (' . $style_id->get_error_message() . ').';
+                        continue;
+                    }
+                    update_post_meta( $style_id, '_asevj_school_id', (int) $school_id );
+                    update_post_meta( $style_id, '_asevj_enabled', 1 );
+                    update_post_meta( $style_id, '_asevj_imported_structured', 1 );
+                    $styles_created++;
+                }
+
+                wp_update_post( [
+                    'ID'         => (int) $style_id,
+                    'post_title' => $style_name,
+                    'menu_order' => $menu_order,
+                ] );
+                update_post_meta( (int) $style_id, '_asevj_import_style_key', $style_key );
+                $this->update_style_from_csv( (int) $style_id, $row );
+
+                $roles = [];
+                foreach ( $style_entries as $entry ) {
+                    $role = $this->image_role( basename( $entry['name'] ) );
+                    if ( ! in_array( $role, [ 'front', 'back', 'letter', 'sleeve', 'detail' ], true ) ) {
+                        continue;
+                    }
+                    if ( isset( $roles[ $role ] ) ) {
+                        $errors[] = $school_name . ' / ' . $style_name . ': more than one ' . ucfirst( $role ) . ' image was found; the first one was used.';
+                        continue;
+                    }
+                    $roles[ $role ] = $entry;
+                }
+
+                if ( empty( $roles['front'] ) ) {
+                    $errors[] = $school_name . ' / ' . $style_name . ': no Front image was found.';
+                }
+
+                $attachment_by_role = [];
+                foreach ( [ 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
+                    if ( empty( $roles[ $role ] ) ) {
+                        continue;
+                    }
+                    $attachment = $this->import_structured_image( $zip, $roles[ $role ], $school_name, $role, (int) $style_id, $images_created, $images_reused, $errors );
+                    if ( $attachment ) {
+                        $attachment_by_role[ $role ] = $attachment;
+                    }
+                }
+
+                if ( ! empty( $attachment_by_role['front'] ) ) {
+                    set_post_thumbnail( (int) $style_id, (int) $attachment_by_role['front'] );
+                }
+
+                $gallery = [];
+                foreach ( [ 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
+                    if ( ! empty( $attachment_by_role[ $role ] ) ) {
+                        $gallery[] = (int) $attachment_by_role[ $role ];
+                    }
+                }
+                update_post_meta( (int) $style_id, '_asevj_gallery_ids', implode( ',', $gallery ) );
+            }
+        }
+
+        $zip->close();
+        $summary = sprintf(
+            '%d school(s) created, %d updated, %d skipped, %d style(s) created, %d image(s) imported, %d media item(s) reused.',
+            $created,
+            $updated,
+            $skipped,
+            $styles_created,
+            $images_created,
+            $images_reused
+        );
+        $this->save_result( 'Structured school import complete', $summary, $errors, $first_school_id );
+        wp_safe_redirect( $redirect );
+        exit;
+    }
+'''
+          pattern = re.compile(r"    private function handle_structured_import\( ZipArchive \$zip, array \$rows, string \$redirect \): void \{.*?\n    \}\n\n    private function update_school_from_csv", re.S)
+          m = pattern.search(s)
+          if not m:
+              raise SystemExit('Could not locate structured importer function.')
+          s = s[:m.start()] + new_handle + '\n    private function update_school_from_csv' + s[m.end():]
+
+          # Replace folder grouping / matching / style lookup helpers.
+          helper_block = r'''    private function group_images_by_school_folder( array $entries ): array {
+        $groups = [];
+        $level = $this->detect_school_segment( $entries );
+        foreach ( $entries as $entry ) {
+            $folder = $entry['parts'][ $level ] ?? '';
+            if ( '' === $folder ) {
+                continue;
+            }
+            $groups[ $this->normalize_school_key( $folder ) ][] = $entry;
+        }
+        return $groups;
+    }
+
+    /**
+     * A school may contain one flat jacket set or several folders such as:
+     * John Glenn/Style 1 (Maroon)/John Glenn Maroon Front.png
+     * John Glenn/Style 2 (White)/John Glenn White Front.png
+     */
+    private function group_school_entries_by_style( array $school_entries, int $school_level, array $row ): array {
+        $nested = [];
+        $flat = [];
+
+        foreach ( $school_entries as $entry ) {
+            $parts = $entry['parts'];
+            $candidate = $parts[ $school_level + 1 ] ?? '';
+            $has_nested_folder = count( $parts ) > ( $school_level + 2 );
+            $style = $has_nested_folder ? $this->parse_style_folder( (string) $candidate ) : null;
+
+            if ( $style ) {
+                $key = $style['key'];
+                if ( ! isset( $nested[ $key ] ) ) {
+                    $nested[ $key ] = $style + [ 'entries' => [] ];
+                }
+                $nested[ $key ]['entries'][] = $entry;
+            } else {
+                $flat[] = $entry;
+            }
+        }
+
+        if ( $nested ) {
+            // School-level Logo/Mascot files are handled separately. If jacket-role
+            // images also exist at the school root, keep them as a final fallback style.
+            $flat_jacket = array_values( array_filter( $flat, function( $entry ) {
+                return in_array( $this->image_role( basename( $entry['name'] ) ), [ 'front', 'back', 'letter', 'sleeve', 'detail' ], true );
+            } ) );
+            if ( $flat_jacket ) {
+                $fallback_name = sanitize_text_field( (string) ( $row['style_name'] ?? '' ) );
+                if ( '' === $fallback_name ) {
+                    $fallback_name = 'Classic Varsity Jacket';
+                }
+                $nested['root-style'] = [
+                    'key'     => 'root-style',
+                    'name'    => $fallback_name,
+                    'order'   => 999,
+                    'entries' => $flat_jacket,
+                ];
+            }
+
+            uasort( $nested, static fn( $a, $b ) => (int) $a['order'] <=> (int) $b['order'] );
+            return array_values( $nested );
+        }
+
+        $style_name = sanitize_text_field( (string) ( $row['style_name'] ?? '' ) );
+        if ( '' === $style_name ) {
+            $style_name = 'Classic Varsity Jacket';
+        }
+        return [ [
+            'key'     => 'default',
+            'name'    => $style_name,
+            'order'   => 0,
+            'entries' => $flat,
+        ] ];
+    }
+
+    private function parse_style_folder( string $folder ): ?array {
+        $folder = trim( rawurldecode( $folder ) );
+        if ( ! preg_match( '/^style\s*(\d+)(?:\s*[-–—:]?\s*(?:\(([^)]+)\)|(.+)))?$/i', $folder, $match ) ) {
+            return null;
+        }
+
+        $number = max( 1, (int) $match[1] );
+        $label = trim( (string) ( $match[2] ?? $match[3] ?? '' ) );
+        $name = '' !== $label ? $label : 'Style ' . $number;
+
+        return [
+            'key'   => 'style-' . $number . '-' . sanitize_title( $label ),
+            'name'  => $name,
+            'order' => $number - 1,
+        ];
+    }
+
+    private function normalize_school_key( string $value ): string {
+        $value = strtolower( rawurldecode( $value ) );
+        $value = preg_replace( '/[^a-z0-9]+/', '', $value );
+        return (string) $value;
+    }
+
+    private function filename_matches_school( string $filename, string $school_name ): bool {
+        $stem = trim( (string) preg_replace( '/[_-]+/', ' ', pathinfo( $filename, PATHINFO_FILENAME ) ) );
+        foreach ( [ ' logo', ' mascot', ' front', ' back', ' letter', ' sleeve', ' detail' ] as $suffix ) {
+            if ( str_ends_with( strtolower( $stem ), $suffix ) ) {
+                $stem = substr( $stem, 0, -strlen( $suffix ) );
+                break;
+            }
+        }
+        $stem_key = $this->normalize_school_key( $stem );
+        $school_key = $this->normalize_school_key( $school_name );
+        return $stem_key === $school_key || str_starts_with( $stem_key, $school_key );
+    }
+
+    private function image_role( string $filename ): string {
+        $stem = strtolower( trim( preg_replace( '/[_-]+/', ' ', pathinfo( $filename, PATHINFO_FILENAME ) ) ) );
+        foreach ( [ 'logo', 'mascot', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
+            if ( preg_match( '/(?:^|\s)' . preg_quote( $role, '/' ) . '\s*$/i', $stem ) ) {
+                return $role;
+            }
+        }
+        return '';
+    }
+
+    private function find_structured_style( int $school_id, string $style_name, string $style_key = '', int $menu_order = 0 ): int {
+        $styles = get_posts( [
+            'post_type'      => 'asevj_style',
+            'post_status'    => [ 'publish', 'draft', 'private' ],
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'meta_key'       => '_asevj_school_id',
+            'meta_value'     => $school_id,
+        ] );
+
+        if ( '' !== $style_key ) {
+            foreach ( $styles as $style_id ) {
+                if ( $style_key === (string) get_post_meta( (int) $style_id, '_asevj_import_style_key', true ) ) {
+                    return (int) $style_id;
+                }
+            }
+        }
+
+        foreach ( $styles as $style_id ) {
+            if ( 0 === strcasecmp( trim( get_the_title( $style_id ) ), trim( $style_name ) ) ) {
+                return (int) $style_id;
+            }
+        }
+
+        // Upgrade an earlier structured one-style import in place when Style 1
+        // folders are introduced later, avoiding an orphan duplicate card.
+        if ( '' !== $style_key ) {
+            foreach ( $styles as $style_id ) {
+                if ( get_post_meta( (int) $style_id, '_asevj_imported_structured', true )
+                    && '' === (string) get_post_meta( (int) $style_id, '_asevj_import_style_key', true )
+                    && $menu_order === (int) get_post_field( 'menu_order', (int) $style_id ) ) {
+                    return (int) $style_id;
+                }
+            }
+        }
+
+        if ( 1 === count( $styles ) && get_post_meta( (int) $styles[0], '_asevj_imported_legacy', true ) ) {
+            update_post_meta( (int) $styles[0], '_asevj_imported_structured', 1 );
+            return (int) $styles[0];
+        }
+        return 0;
+    }
+'''
+          helper_pattern = re.compile(r"    private function group_images_by_school_folder\( array \$entries \): array \{.*?\n    private function import_structured_image", re.S)
+          hm = helper_pattern.search(s)
+          if not hm:
+              raise SystemExit('Could not locate structured helper block.')
+          s = s[:hm.start()] + helper_block + '\n    private function import_structured_image' + s[hm.end():]
+          p.write_text(s)
+
+          # Documentation.
+          p = root / 'README.md'
+          rs = p.read_text()
+          rs = rs.replace('Current release line: **0.2.0-beta.9**.', 'Current release line: **0.2.0-beta.10**.')
+          marker = '- `{School Name} Detail` → gallery\n'
+          addition = marker + '\nSchools may also contain nested style folders such as `John Glenn/Style 1 (Maroon)/` and `John Glenn/Style 2 (White)/`. The importer creates separate styles in folder-number order. Filenames may include the style descriptor before the role, e.g. `John Glenn Maroon Front.png`.\n'
+          if marker in rs and 'Style 1 (Maroon)' not in rs:
+              rs = rs.replace(marker, addition)
+          p.write_text(rs)
+
+          notes = root / 'releases/RELEASE-0.2.0-beta.10.md'
+          notes.write_text('''# All Star Varsity Jackets v0.2.0-beta.10\n\n## Changes\n\n- Added multi-style structured ZIP imports using nested folders such as `School/Style 1 (Maroon)/` and `School/Style 2 (White)/`.\n- Style folder numbers control frontend Style 1 / Style 2 ordering; the parenthesized label becomes the editable style name.\n- Filenames may include a style descriptor between school name and image role, e.g. `John Glenn Maroon Front.png`.\n- School Logo and Mascot artwork may live at the school root or inside a style folder; they are still stored once at school level.\n- Front remains each style's featured/product image; Back, Letter, Sleeve, and Detail remain the ordered style gallery.\n- Re-running an import reuses style slots and previously imported media instead of intentionally duplicating them.\n\n## Compatibility\n\n- WordPress 6.4+\n- PHP 8.0+\n- WooCommerce remains optional\n''')
+
+          # Remove this one-time patch workflow from the resulting source commit.
+          (root / '.github/workflows/apply-beta10-style-folders.yml').unlink(missing_ok=True)
+          PY
+
+          php -l all-star-varsity-jackets/all-star-varsity-jackets.php
+          php -l all-star-varsity-jackets/includes/class-asevj-importer.php
+          for f in all-star-varsity-jackets/blocks/*/block.json; do python3 -m json.tool "$f" >/dev/null; done
+
+      - name: Commit beta.10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: support multi-style school folders for beta.10'
+          git push origin HEAD:main
