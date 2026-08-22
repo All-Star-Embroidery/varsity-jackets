@@ -38,22 +38,22 @@ final class ASEVJ_Importer {
         }
 
         echo '<section class="asevj-admin-card asevj-import-card">';
-        echo '<div class="asevj-import-heading"><div><span class="asevj-badge is-gold">School ZIP importer</span><h2>Import schools, logos & jacket photography</h2><p>Upload one ZIP containing a school CSV plus one folder per school. The importer reads the school information, recognizes each image by filename, places the logo on the school, uses <strong>Front</strong> as the jacket product image, and orders <strong>Back → Letter → Sleeve → Detail</strong> in the style gallery automatically.</p></div></div>';
+        echo '<div class="asevj-import-heading"><div><span class="asevj-badge is-gold">School ZIP importer</span><h2>Import schools, branding & jacket photography</h2><p>Upload one ZIP containing a school CSV plus one folder per school. The importer reads the school information, recognizes each image by filename, stores the school logo and optional mascot artwork separately, uses <strong>Front</strong> as the jacket product image, and orders <strong>Back → Letter → Sleeve → Detail</strong> in the style gallery automatically.</p></div></div>';
         echo '<div class="asevj-import-flow">';
         echo '<div><b>1</b><span><strong>Choose the ZIP</strong><small>Include <code>schools.csv</code> and a folder for each school.</small></span></div>';
         echo '<div><b>2</b><span><strong>Information is matched</strong><small>CSV rows match folders by School Name; existing schools are updated safely.</small></span></div>';
-        echo '<div><b>3</b><span><strong>Images land correctly</strong><small>Logo → school logo, Front → featured jacket, Back/Letter/Sleeve/Detail → gallery.</small></span></div>';
+        echo '<div><b>3</b><span><strong>Images land correctly</strong><small>Logo → school logo, Mascot → mascot artwork, Front → featured jacket, Back/Letter/Sleeve/Detail → gallery.</small></span></div>';
         echo '</div>';
         echo '<form method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="asevj-import-form">';
         wp_nonce_field( 'asevj_import_legacy_zip', 'asevj_import_nonce' );
         echo '<input type="hidden" name="action" value="asevj_import_legacy_zip">';
         echo '<label class="asevj-file-drop"><span class="dashicons dashicons-upload"></span><strong>Select your varsity jacket ZIP</strong><small>Maximum upload size: ' . esc_html( size_format( wp_max_upload_size() ) ) . '</small><input type="file" name="asevj_legacy_zip" accept=".zip,application/zip" required></label>';
-        echo '<div class="asevj-import-safety"><strong>Expected filenames:</strong> <code>{School Name} Logo</code>, <code>Front</code>, <code>Back</code>, <code>Letter</code>, <code>Sleeve</code>, <code>Detail</code>. JPG/JPEG/PNG/WEBP/GIF/AVIF are accepted. <strong>Safe to rerun:</strong> imported media are tagged by ZIP path and reused.</div>';
+        echo '<div class="asevj-import-safety"><strong>Expected filenames:</strong> <code>{School Name} Logo</code>, <code>{School Name} Mascot</code>, <code>{School Name} Front</code>, <code>{School Name} Back</code>, <code>{School Name} Letter</code>, <code>{School Name} Sleeve</code>, <code>{School Name} Detail</code>. JPG/JPEG/PNG/WEBP/GIF/AVIF are accepted. Logo and Mascot are optional. <strong>Safe to rerun:</strong> imported media are tagged by ZIP path and reused.</div>';
         echo '<label class="asevj-field" style="max-width:440px"><strong>If a school already exists</strong><select name="asevj_existing_mode"><option value="update">Update it with the CSV/images</option><option value="skip">Skip that school</option></select></label>';
         submit_button( 'Import Schools & Jacket Images', 'primary button-hero', 'submit', false );
         echo '</form>';
         echo '</section>';
-        echo '<section class="asevj-admin-card asevj-import-card"><h2>CSV format</h2><p><strong>Required:</strong> <code>School Name</code>. Optional columns are <code>Mascot</code>, <code>Location</code>, <code>District</code>, <code>Description</code>, <code>Primary Color</code>, <code>Secondary Color</code>, <code>Accent Color</code>, <code>Style Name</code>, <code>Style Subtitle</code>, <code>Style Description</code>, <code>Price</code>, and <code>CTA</code>. Extra columns are ignored, so the sheet can grow later without breaking imports.</p><p class="description">For backwards compatibility, a legacy ZIP without <code>schools.csv</code> still falls back to the original image-manifest importer.</p></section>';
+        echo '<section class="asevj-admin-card asevj-import-card"><h2>CSV format</h2><p><strong>Required:</strong> <code>School Name</code>. Optional columns are <code>Mascot</code>, <code>Location</code>, <code>District</code>, <code>Description</code>, <code>Primary Color</code>, <code>Secondary Color</code>, <code>Accent Color</code>, <code>Style Name</code>, <code>Style Subtitle</code>, <code>Style Description</code>, <code>Price</code>, and <code>CTA</code>. The <code>Mascot</code> CSV column is the mascot <em>name</em>; mascot artwork is detected from the <code>{School Name} Mascot</code> image file. Extra columns are ignored, so the sheet can grow later without breaking imports.</p><p class="description">For backwards compatibility, a legacy ZIP without <code>schools.csv</code> still falls back to the original image-manifest importer.</p></section>';
     }
 
     public function handle_import(): void {
@@ -429,16 +429,13 @@ final class ASEVJ_Importer {
             if ( empty( $roles['front'] ) ) {
                 $errors[] = $school_name . ': no "' . $school_name . ' Front" image was found.';
             }
-            if ( empty( $roles['logo'] ) ) {
-                $errors[] = $school_name . ': no "' . $school_name . ' Logo" image was found.';
-            }
 
             $attachment_by_role = [];
-            foreach ( [ 'logo', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
+            foreach ( [ 'logo', 'mascot', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
                 if ( empty( $roles[ $role ] ) ) {
                     continue;
                 }
-                $parent = 'logo' === $role ? (int) $school_id : (int) $style_id;
+                $parent = in_array( $role, [ 'logo', 'mascot' ], true ) ? (int) $school_id : (int) $style_id;
                 $attachment = $this->import_structured_image( $zip, $roles[ $role ], $school_name, $role, $parent, $images_created, $images_reused, $errors );
                 if ( $attachment ) {
                     $attachment_by_role[ $role ] = $attachment;
@@ -447,6 +444,9 @@ final class ASEVJ_Importer {
 
             if ( ! empty( $attachment_by_role['logo'] ) ) {
                 update_post_meta( (int) $school_id, '_asevj_logo_id', (int) $attachment_by_role['logo'] );
+            }
+            if ( ! empty( $attachment_by_role['mascot'] ) ) {
+                update_post_meta( (int) $school_id, '_asevj_mascot_image_id', (int) $attachment_by_role['mascot'] );
             }
             if ( ! empty( $attachment_by_role['front'] ) ) {
                 set_post_thumbnail( (int) $style_id, (int) $attachment_by_role['front'] );
@@ -541,7 +541,7 @@ final class ASEVJ_Importer {
 
     private function filename_matches_school( string $filename, string $school_name ): bool {
         $stem = trim( (string) preg_replace( '/[_-]+/', ' ', pathinfo( $filename, PATHINFO_FILENAME ) ) );
-        foreach ( [ ' logo', ' front', ' back', ' letter', ' sleeve', ' detail' ] as $suffix ) {
+        foreach ( [ ' logo', ' mascot', ' front', ' back', ' letter', ' sleeve', ' detail' ] as $suffix ) {
             if ( str_ends_with( strtolower( $stem ), $suffix ) ) {
                 $stem = substr( $stem, 0, -strlen( $suffix ) );
                 break;
@@ -552,7 +552,7 @@ final class ASEVJ_Importer {
 
     private function image_role( string $filename ): string {
         $stem = strtolower( trim( preg_replace( '/[_-]+/', ' ', pathinfo( $filename, PATHINFO_FILENAME ) ) ) );
-        foreach ( [ 'logo', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
+        foreach ( [ 'logo', 'mascot', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {
             if ( preg_match( '/(?:^|\s)' . preg_quote( $role, '/' ) . '\s*$/i', $stem ) ) {
                 return $role;
             }
