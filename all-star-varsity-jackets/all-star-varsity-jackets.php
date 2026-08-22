@@ -2,7 +2,7 @@
 /**
  * Plugin Name: All Star Varsity Jackets
  * Description: Modular, highly customizable varsity jacket school/style showcase with optional WooCommerce product linking for All Star Embroidery.
- * Version: 0.2.0-beta.8
+ * Version: 0.2.0-beta.9
  * Author: All Star Embroidery
  * Requires at least: 6.4
  * Requires PHP: 8.0
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'ASEVJ_VERSION', '0.2.0-beta.8' );
+define( 'ASEVJ_VERSION', '0.2.0-beta.9' );
 define( 'ASEVJ_FILE', __FILE__ );
 define( 'ASEVJ_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASEVJ_URL', plugin_dir_url( __FILE__ ) );
@@ -25,6 +25,7 @@ require_once ASEVJ_DIR . 'includes/class-asevj-render.php';
 require_once ASEVJ_DIR . 'includes/class-asevj-blocks.php';
 require_once ASEVJ_DIR . 'includes/class-asevj-woocommerce.php';
 require_once ASEVJ_DIR . 'includes/class-asevj-importer.php';
+require_once ASEVJ_DIR . 'includes/class-asevj-mascot.php';
 require_once ASEVJ_DIR . 'includes/class-asevj-updater.php';
 require_once ASEVJ_DIR . 'includes/class-asevj-tools.php';
 
@@ -50,6 +51,7 @@ final class ASEVJ_Plugin {
         ASEVJ_Blocks::instance();
         ASEVJ_WooCommerce::instance();
         ASEVJ_Importer::instance();
+        ASEVJ_Mascot::instance();
         ASEVJ_Updater::instance();
         ASEVJ_Tools::instance();
 
