@@ -1,7 +1,7 @@
 {
   "apiVersion": 3,
   "name": "asevj/full-experience",
-  "version": "0.2.0-beta.8",
+  "version": "0.2.0-beta.9",
   "title": "Full Varsity Jackets Experience",
   "category": "all-star-embroidery",
   "icon": "star-filled",
@@ -10,168 +10,45 @@
   "editorScript": "asevj-editor",
   "editorStyle": "asevj-editor-style",
   "attributes": {
-    "title": {
-      "type": "string",
-      "default": ""
-    },
-    "kicker": {
-      "type": "string",
-      "default": ""
-    },
-    "body": {
-      "type": "string",
-      "default": ""
-    },
-    "heading": {
-      "type": "string",
-      "default": "BROWSE BY SCHOOL"
-    },
-    "subheading": {
-      "type": "string",
-      "default": "Select your school to view available jacket styles and custom options."
-    },
-    "showFeatures": {
-      "type": "boolean",
-      "default": true
-    },
-    "heroHeight": {
-      "type": "number",
-      "default": 0
-    },
-    "showSearch": {
-      "type": "string",
-      "default": "global"
-    },
-    "showFilters": {
-      "type": "string",
-      "default": "global"
-    },
-    "showPrices": {
-      "type": "string",
-      "default": "global"
-    },
-    "stylesVisible": {
-      "type": "number",
-      "default": 0
-    },
-    "backgroundColor": {
-      "type": "string",
-      "default": ""
-    },
-    "fullBleed": {
-      "type": "boolean",
-      "default": true
-    },
-    "topFadeColor": {
-      "type": "string",
-      "default": "#101B31"
-    },
-    "topFadeHeight": {
-      "type": "number",
-      "default": 110
-    },
-    "heroBackgroundColor": {
-      "type": "string",
-      "default": ""
-    },
-    "browserBackgroundColor": {
-      "type": "string",
-      "default": ""
-    },
-    "benefitsBackgroundColor": {
-      "type": "string",
-      "default": ""
-    },
-    "titleSize": {
-      "type": "number",
-      "default": 0
-    },
-    "kickerSize": {
-      "type": "number",
-      "default": 0
-    },
-    "bodySize": {
-      "type": "number",
-      "default": 0
-    },
-    "contentPaddingX": {
-      "type": "number",
-      "default": 0
-    },
-    "contentPaddingY": {
-      "type": "number",
-      "default": 0
-    },
-    "featureScale": {
-      "type": "number",
-      "default": 100
-    },
-    "jacketScale": {
-      "type": "number",
-      "default": 100
-    },
-    "visualBackgroundColor": {
-      "type": "string",
-      "default": "#07111F"
-    },
-    "jacketOverlayColor": {
-      "type": "string",
-      "default": "#0B162A"
-    },
-    "jacketOverlayOpacity": {
-      "type": "number",
-      "default": 18
-    },
-    "glowColor": {
-      "type": "string",
-      "default": "#27456F"
-    },
-    "glowOpacity": {
-      "type": "number",
-      "default": 32
-    },
-    "glowSize": {
-      "type": "number",
-      "default": 68
-    },
-    "contentOffsetX": {
-      "type": "number",
-      "default": 0
-    },
-    "contentOffsetY": {
-      "type": "number",
-      "default": 0
-    },
-    "featureOffsetX": {
-      "type": "number",
-      "default": 0
-    },
-    "featureOffsetY": {
-      "type": "number",
-      "default": 0
-    },
-    "jacketOffsetX": {
-      "type": "number",
-      "default": 0
-    },
-    "jacketOffsetY": {
-      "type": "number",
-      "default": 0
-    },
-    "glowOffsetX": {
-      "type": "number",
-      "default": 0
-    },
-    "glowOffsetY": {
-      "type": "number",
-      "default": 0
-    }
+    "title": {"type": "string", "default": ""},
+    "kicker": {"type": "string", "default": ""},
+    "body": {"type": "string", "default": ""},
+    "heading": {"type": "string", "default": "BROWSE BY SCHOOL"},
+    "subheading": {"type": "string", "default": "Select your school to view available jacket styles and custom options."},
+    "showFeatures": {"type": "boolean", "default": true},
+    "heroHeight": {"type": "number", "default": 0},
+    "showSearch": {"type": "string", "default": "global"},
+    "showFilters": {"type": "string", "default": "global"},
+    "showPrices": {"type": "string", "default": "global"},
+    "stylesVisible": {"type": "number", "default": 0},
+    "backgroundColor": {"type": "string", "default": ""},
+    "fullBleed": {"type": "boolean", "default": true},
+    "topFadeColor": {"type": "string", "default": "#101B31"},
+    "topFadeHeight": {"type": "number", "default": 110},
+    "heroBackgroundColor": {"type": "string", "default": ""},
+    "browserBackgroundColor": {"type": "string", "default": ""},
+    "benefitsBackgroundColor": {"type": "string", "default": ""},
+    "titleSize": {"type": "number", "default": 0},
+    "kickerSize": {"type": "number", "default": 0},
+    "bodySize": {"type": "number", "default": 0},
+    "contentPaddingX": {"type": "number", "default": 0},
+    "contentPaddingY": {"type": "number", "default": 0},
+    "featureScale": {"type": "number", "default": 100},
+    "jacketScale": {"type": "number", "default": 100},
+    "visualBackgroundColor": {"type": "string", "default": "#07111F"},
+    "jacketOverlayColor": {"type": "string", "default": "#0B162A"},
+    "jacketOverlayOpacity": {"type": "number", "default": 18},
+    "glowColor": {"type": "string", "default": "#27456F"},
+    "glowOpacity": {"type": "number", "default": 32},
+    "glowSize": {"type": "number", "default": 68},
+    "contentOffsetX": {"type": "number", "default": 0},
+    "contentOffsetY": {"type": "number", "default": 0},
+    "featureOffsetX": {"type": "number", "default": 0},
+    "featureOffsetY": {"type": "number", "default": 0},
+    "jacketOffsetX": {"type": "number", "default": 0},
+    "jacketOffsetY": {"type": "number", "default": 0},
+    "glowOffsetX": {"type": "number", "default": 0},
+    "glowOffsetY": {"type": "number", "default": 0}
   },
-  "supports": {
-    "html": false,
-    "align": [
-      "wide",
-      "full"
-    ]
-  }
+  "supports": {"html": false, "align": ["wide", "full"]}
 }
