@@ -56,6 +56,7 @@ final class ASEVJ_Plugin {
         add_action( 'wp_enqueue_scripts', [ $this, 'register_frontend_assets' ] );
     }
 
+
     private function maybe_upgrade(): void {
         $installed = (string) get_option( 'asevj_version', '' );
         if ( ASEVJ_VERSION === $installed ) {
@@ -67,6 +68,7 @@ final class ASEVJ_Plugin {
             $settings = [];
         }
 
+        // Beta 1 used a red accent that is not part of the current All Star website palette.
         unset( $settings['red'] );
         if ( empty( $settings['accent'] ) ) {
             $settings['accent'] = '#F2B619';
@@ -86,8 +88,20 @@ final class ASEVJ_Plugin {
     }
 
     public function register_frontend_assets(): void {
-        wp_register_style( 'asevj-frontend', ASEVJ_URL . 'assets/frontend.css', [], ASEVJ_VERSION );
-        wp_register_script( 'asevj-frontend', ASEVJ_URL . 'assets/frontend.js', [], ASEVJ_VERSION, true );
+        wp_register_style(
+            'asevj-frontend',
+            ASEVJ_URL . 'assets/frontend.css',
+            [],
+            ASEVJ_VERSION
+        );
+
+        wp_register_script(
+            'asevj-frontend',
+            ASEVJ_URL . 'assets/frontend.js',
+            [],
+            ASEVJ_VERSION,
+            true
+        );
     }
 
     public function activate(): void {

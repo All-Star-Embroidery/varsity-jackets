@@ -1,0 +1,53 @@
+{
+  "apiVersion": 3,
+  "name": "asevj/browser",
+  "version": "0.2.0-beta.8",
+  "title": "Browse Varsity Jackets",
+  "category": "all-star-embroidery",
+  "icon": "grid-view",
+  "description": "Interactive school selector with multiple jacket styles per school.",
+  "textdomain": "all-star-varsity-jackets",
+  "editorScript": "asevj-editor",
+  "editorStyle": "asevj-editor-style",
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "default": "BROWSE BY SCHOOL"
+    },
+    "subheading": {
+      "type": "string",
+      "default": "Select your school to view available jacket styles and custom options."
+    },
+    "showSearch": {
+      "type": "string",
+      "default": "global"
+    },
+    "showFilters": {
+      "type": "string",
+      "default": "global"
+    },
+    "showPrices": {
+      "type": "string",
+      "default": "global"
+    },
+    "stylesVisible": {
+      "type": "number",
+      "default": 0
+    },
+    "backgroundColor": {
+      "type": "string",
+      "default": ""
+    },
+    "fullBleed": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "supports": {
+    "html": false,
+    "align": [
+      "wide",
+      "full"
+    ]
+  }
+}

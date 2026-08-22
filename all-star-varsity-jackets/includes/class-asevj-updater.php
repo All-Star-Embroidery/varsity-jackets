@@ -51,6 +51,9 @@ final class ASEVJ_Updater {
         delete_site_transient( self::UPDATE_CACHE_KEY );
     }
 
+    /**
+     * Fetch and sanitize the public release manifest.
+     */
     private static function fetch_update_manifest( bool $force = false ): ?array {
         if ( ! $force ) {
             $cached = get_site_transient( self::UPDATE_CACHE_KEY );
@@ -100,6 +103,9 @@ final class ASEVJ_Updater {
         return $manifest;
     }
 
+    /**
+     * Exposed for the plugin's Tools & Updates status screen.
+     */
     public static function latest_release( bool $force = false ) {
         $manifest = self::fetch_update_manifest( $force );
         if ( ! $manifest ) {
@@ -193,6 +199,9 @@ final class ASEVJ_Updater {
         ];
     }
 
+    /**
+     * Varsity Jackets releases are intentionally permitted to auto-install.
+     */
     public static function enable_github_auto_update( bool $update, $item ): bool {
         $plugin = is_object( $item ) && isset( $item->plugin ) ? (string) $item->plugin : '';
         return self::plugin_basename() === $plugin ? true : $update;

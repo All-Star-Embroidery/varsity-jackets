@@ -1,0 +1,29 @@
+{
+  "apiVersion": 3,
+  "name": "asevj/benefits",
+  "version": "0.2.0-beta.8",
+  "title": "Varsity Benefits Strip",
+  "category": "all-star-embroidery",
+  "icon": "awards",
+  "description": "Premium materials, fit, craftsmanship, and built-to-last benefits strip.",
+  "textdomain": "all-star-varsity-jackets",
+  "editorScript": "asevj-editor",
+  "editorStyle": "asevj-editor-style",
+  "supports": {
+    "html": false,
+    "align": [
+      "wide",
+      "full"
+    ]
+  },
+  "attributes": {
+    "backgroundColor": {
+      "type": "string",
+      "default": ""
+    },
+    "fullBleed": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}
