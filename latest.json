@@ -1,0 +1,13 @@
+{
+  "name": "All Star Varsity Jackets",
+  "slug": "all-star-varsity-jackets",
+  "version": "0.2.0-beta.8",
+  "download_url": "https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/asevj-v0.2.0-beta.8/all-star-varsity-jackets-0.2.0-beta.8.zip",
+  "homepage": "https://github.com/rolejarczyk/ASE.VarsityJackets",
+  "requires": "6.4",
+  "tested": "6.8",
+  "requires_php": "8.0",
+  "last_updated": "2026-08-22 17:55:05 +0000",
+  "description": "School-based varsity jacket collections with structured school imports, live Gutenberg blocks, gallery management, and optional WooCommerce products for All Star Embroidery.",
+  "changelog": "<h4>0.2.0-beta.8</h4><ul><li>Replaced the experimental updater with the same GitHub Release asset \u2192 `latest.json` \u2192 native WordPress updater architecture used by All Star Bulk Order.</li><li>Added a 30-minute manifest cache, WordPress version-details metadata, automatic installation permission, and precise cache invalidation after this plugin upgrades.</li><li>Added a structured ZIP importer driven by `schools.csv`.</li><li>Automatically maps `{School Name} Logo` to the school logo and `{School Name} Front` to the jacket style featured image.</li><li>Automatically maps Back, Letter, Sleeve, and Detail photography into the style gallery in that order.</li><li>CSV import can populate mascot, location, district, description, school colors, and optional initial style details, price, and CTA.</li><li>Existing legacy `image-manifest.csv` ZIP imports remain supported as a fallback.</li></ul>"
+}
