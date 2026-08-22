@@ -2,25 +2,50 @@
 
 Development and release repository for the All Star Embroidery Varsity Jackets WordPress/WooCommerce plugin.
 
-## WordPress update system
+Current release line: **0.2.0-beta.8**.
 
-`0.2.0-beta.7` is the bridge release for the permanent updater architecture.
+## Stable WordPress plugin identity
 
-From beta.7 forward, WordPress does **not** depend on GitHub Actions successfully building or uploading a binary release asset. The plugin reads `update.json` directly from this repository. Releases may be delivered either as a normal ZIP URL or as checksum-verified base64 package chunks stored as ordinary UTF-8 files in this repository.
+- Plugin name: `All Star Varsity Jackets`
+- Plugin slug/folder: `all-star-varsity-jackets`
+- Main file: `all-star-varsity-jackets.php`
+- Update URI: `https://github.com/rolejarczyk/ASE.VarsityJackets`
 
-For chunked releases, WordPress downloads the chunk list from the manifest, reconstructs the ZIP in its temporary directory, verifies the SHA-256 checksum, and passes the verified ZIP to the normal WordPress upgrader.
+The plugin folder and basename remain stable between releases so WordPress upgrades the existing installation rather than creating a second plugin directory.
 
-That means future releases can be published entirely through normal GitHub file writes, which is the same access path used for ongoing development here.
+## GitHub → WordPress release architecture
 
-### Release flow after beta.7
+The release pipeline mirrors the working All Star Bulk Order updater architecture:
 
-1. Build and validate the plugin ZIP.
-2. Split the ZIP into base64 text chunks and commit them under `packages/<version>/`.
-3. Update `update.json` with the new version, chunk URLs, and SHA-256 checksum.
-4. WordPress installations on the Beta + Stable channel discover and install the release normally.
+1. Plugin source lives in `all-star-varsity-jackets/` on `main`.
+2. `.github/workflows/publish-plugin-release.yml` validates the source and builds a purpose-built WordPress ZIP.
+3. The workflow verifies that the ZIP contains exactly one top-level `all-star-varsity-jackets/` directory and the expected main PHP file.
+4. GitHub creates a versioned Release and uploads the ZIP as a genuine **Release asset**.
+5. Only after that asset is downloaded and revalidated does the workflow update `latest.json`.
+6. Installed WordPress copies read `latest.json` and use the `/releases/download/...` asset URL through the native WordPress updater.
+7. The plugin supplies version details, permits automatic updates for itself, caches the manifest for 30 minutes, and clears that cache after a successful plugin upgrade.
 
-GitHub Actions and formal GitHub Releases are optional validation/convenience layers. They are not required for WordPress to receive an update.
+Do not use repository ZIPs, raw committed ZIPs, or GitHub source archives as the WordPress installation package.
 
-## Current bridge state
+## Structured school importer
 
-The public manifest remains on beta.5 until the beta.7 bridge is installed on the active WordPress site. This prevents older updater code from being handed a chunked package format it does not understand.
+A varsity import ZIP can contain a `schools.csv` plus one folder per school. The importer recognizes image roles by filename:
+
+- `{School Name} Logo` → school logo
+- `{School Name} Front` → jacket style featured/product image
+- `{School Name} Back` → gallery
+- `{School Name} Letter` → gallery
+- `{School Name} Sleeve` → gallery
+- `{School Name} Detail` → gallery
+
+The CSV can also populate school/initial-style metadata such as mascot, location, district, description, colors, style name/description, price, and CTA. Legacy `image-manifest.csv` imports remain supported as a fallback.
+
+## Releasing future versions
+
+For each version:
+
+1. Update the plugin header version and `ASEVJ_VERSION` together.
+2. Update block metadata versions where applicable.
+3. Add `releases/RELEASE-X.Y.Z.md`.
+4. Commit source changes to `main` or manually run **Publish WordPress Plugin Release** with the matching version.
+5. Do not consider the release complete until the GitHub Release asset has been validated and `latest.json` points to that asset.
