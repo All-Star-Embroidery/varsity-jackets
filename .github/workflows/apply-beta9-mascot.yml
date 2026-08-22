@@ -1,0 +1,204 @@
+name: Apply beta.9 mascot image support
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-beta9-mascot.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Patch source for beta.9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          root = pathlib.Path('.')
+          version_old = '0.2.0-beta.8'
+          version_new = '0.2.0-beta.9'
+
+          # Main plugin identity/version.
+          p = root / 'all-star-varsity-jackets/all-star-varsity-jackets.php'
+          s = p.read_text()
+          if version_old not in s:
+              raise SystemExit('Expected beta.8 version not found in main plugin file.')
+          p.write_text(s.replace(version_old, version_new))
+
+          # Keep all block metadata versions aligned.
+          for p in (root / 'all-star-varsity-jackets/blocks').glob('*/block.json'):
+              data = json.loads(p.read_text())
+              data['version'] = version_new
+              p.write_text(json.dumps(data, indent=2) + '\n')
+
+          # Importer: recognize mascot images independently from mascot text.
+          p = root / 'all-star-varsity-jackets/includes/class-asevj-importer.php'
+          s = p.read_text()
+
+          replacements = [
+              (
+                  'Logo → school logo, Front → featured jacket, Back/Letter/Sleeve/Detail → gallery.',
+                  'Logo → school logo, Mascot → mascot image, Front → featured jacket, Back/Letter/Sleeve/Detail → gallery.'
+              ),
+              (
+                  '<code>{School Name} Logo</code>, <code>Front</code>, <code>Back</code>, <code>Letter</code>, <code>Sleeve</code>, <code>Detail</code>.',
+                  '<code>{School Name} Logo</code>, <code>Mascot</code>, <code>Front</code>, <code>Back</code>, <code>Letter</code>, <code>Sleeve</code>, <code>Detail</code>.'
+              ),
+              (
+                  "foreach ( [ 'logo', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {",
+                  "foreach ( [ 'logo', 'mascot', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {"
+              ),
+              (
+                  "$parent = 'logo' === $role ? (int) $school_id : (int) $style_id;",
+                  "$parent = in_array( $role, [ 'logo', 'mascot' ], true ) ? (int) $school_id : (int) $style_id;"
+              ),
+              (
+                  "foreach ( [ ' logo', ' front', ' back', ' letter', ' sleeve', ' detail' ] as $suffix ) {",
+                  "foreach ( [ ' logo', ' mascot', ' front', ' back', ' letter', ' sleeve', ' detail' ] as $suffix ) {"
+              ),
+              (
+                  "foreach ( [ 'logo', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {",
+                  "foreach ( [ 'logo', 'mascot', 'front', 'back', 'letter', 'sleeve', 'detail' ] as $role ) {"
+              ),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit('Importer patch anchor not found: ' + old[:100])
+              s = s.replace(old, new)
+
+          # Logo and mascot artwork are both optional; Front is the only named image we warn about.
+          old_warning = """            if ( empty( $roles['logo'] ) ) {
+                $errors[] = $school_name . ': no \"' . $school_name . ' Logo\" image was found.';
+            }
+"""
+          if old_warning not in s:
+              raise SystemExit('Logo-warning anchor not found.')
+          s = s.replace(old_warning, '')
+
+          old_meta = """            if ( ! empty( $attachment_by_role['logo'] ) ) {
+                update_post_meta( (int) $school_id, '_asevj_logo_id', (int) $attachment_by_role['logo'] );
+            }
+            if ( ! empty( $attachment_by_role['front'] ) ) {
+"""
+          new_meta = """            if ( ! empty( $attachment_by_role['logo'] ) ) {
+                update_post_meta( (int) $school_id, '_asevj_logo_id', (int) $attachment_by_role['logo'] );
+            }
+            if ( ! empty( $attachment_by_role['mascot'] ) ) {
+                update_post_meta( (int) $school_id, '_asevj_mascot_image_id', (int) $attachment_by_role['mascot'] );
+            }
+            if ( ! empty( $attachment_by_role['front'] ) ) {
+"""
+          if old_meta not in s:
+              raise SystemExit('School image-meta anchor not found.')
+          s = s.replace(old_meta, new_meta)
+          p.write_text(s)
+
+          # Admin school editor: separate Mascot Name text from Mascot Image artwork.
+          p = root / 'all-star-varsity-jackets/includes/class-asevj-admin.php'
+          s = p.read_text()
+          s = s.replace(
+              "$this->field( 'Mascot', 'asevj_mascot', $mascot, 'Example: Wildcats, Warriors, Ceramics.' );",
+              "$this->field( 'Mascot Name', 'asevj_mascot', $mascot, 'Example: Wildcats, Warriors, Ceramics.' );"
+          )
+
+          old_vars = """        $logo_id   = absint( get_post_meta( $post->ID, '_asevj_logo_id', true ) );
+        $primary   = (string) get_post_meta( $post->ID, '_asevj_primary', true ) ?: '#D6A83A';
+        $secondary = (string) get_post_meta( $post->ID, '_asevj_secondary', true ) ?: '#101B31';
+        $accent    = (string) get_post_meta( $post->ID, '_asevj_accent', true ) ?: '#F2B619';
+        $logo_url  = $logo_id ? wp_get_attachment_image_url( $logo_id, 'medium' ) : '';
+"""
+          new_vars = """        $logo_id         = absint( get_post_meta( $post->ID, '_asevj_logo_id', true ) );
+        $mascot_image_id = absint( get_post_meta( $post->ID, '_asevj_mascot_image_id', true ) );
+        $primary         = (string) get_post_meta( $post->ID, '_asevj_primary', true ) ?: '#D6A83A';
+        $secondary       = (string) get_post_meta( $post->ID, '_asevj_secondary', true ) ?: '#101B31';
+        $accent          = (string) get_post_meta( $post->ID, '_asevj_accent', true ) ?: '#F2B619';
+        $logo_url        = $logo_id ? wp_get_attachment_image_url( $logo_id, 'medium' ) : '';
+        $mascot_image_url = $mascot_image_id ? wp_get_attachment_image_url( $mascot_image_id, 'medium' ) : '';
+"""
+          if old_vars not in s:
+              raise SystemExit('Admin branding-variable anchor not found.')
+          s = s.replace(old_vars, new_vars)
+
+          old_logo_block = """        echo '<div class=\"asevj-media-field\">';
+        echo '<strong>School Logo</strong><p class=\"description\">Optional. If no logo is uploaded, the frontend creates a clean text/monogram fallback.</p>';
+        echo '<div class=\"asevj-media-preview\">' . ( $logo_url ? '<img src=\"' . esc_url( $logo_url ) . '\" alt=\"\">' : '<span>No logo selected</span>' ) . '</div>';
+        echo '<input type=\"hidden\" class=\"asevj-media-id\" name=\"asevj_logo_id\" value=\"' . esc_attr( $logo_id ) . '\">';
+        echo '<button type=\"button\" class=\"button asevj-pick-media\">Choose Logo</button> <button type=\"button\" class=\"button-link-delete asevj-remove-media\">Remove</button>';
+        echo '</div>';
+"""
+          new_logo_block = old_logo_block + """        echo '<div class=\"asevj-media-field\">';
+        echo '<strong>Mascot Image</strong><p class=\"description\">Optional. Store the school mascot artwork separately from the school logo and mascot name.</p>';
+        echo '<div class=\"asevj-media-preview\">' . ( $mascot_image_url ? '<img src=\"' . esc_url( $mascot_image_url ) . '\" alt=\"\">' : '<span>No mascot image selected</span>' ) . '</div>';
+        echo '<input type=\"hidden\" class=\"asevj-media-id\" name=\"asevj_mascot_image_id\" value=\"' . esc_attr( $mascot_image_id ) . '\">';
+        echo '<button type=\"button\" class=\"button asevj-pick-media\">Choose Mascot</button> <button type=\"button\" class=\"button-link-delete asevj-remove-media\">Remove</button>';
+        echo '</div>';
+"""
+          if old_logo_block not in s:
+              raise SystemExit('Admin school-logo block anchor not found.')
+          s = s.replace(old_logo_block, new_logo_block)
+
+          old_save = """            '_asevj_logo_id'     => isset( $_POST['asevj_logo_id'] ) ? absint( $_POST['asevj_logo_id'] ) : 0,
+            '_asevj_primary'     => isset( $_POST['asevj_primary'] ) ? sanitize_hex_color( wp_unslash( $_POST['asevj_primary'] ) ) : '',
+"""
+          new_save = """            '_asevj_logo_id'         => isset( $_POST['asevj_logo_id'] ) ? absint( $_POST['asevj_logo_id'] ) : 0,
+            '_asevj_mascot_image_id' => isset( $_POST['asevj_mascot_image_id'] ) ? absint( $_POST['asevj_mascot_image_id'] ) : 0,
+            '_asevj_primary'         => isset( $_POST['asevj_primary'] ) ? sanitize_hex_color( wp_unslash( $_POST['asevj_primary'] ) ) : '',
+"""
+          if old_save not in s:
+              raise SystemExit('Admin save-school anchor not found.')
+          s = s.replace(old_save, new_save)
+          p.write_text(s)
+
+          # Three balanced branding columns: logo, mascot image, school colors.
+          p = root / 'all-star-varsity-jackets/assets/admin.css'
+          s = p.read_text()
+          old = '.asevj-grid-brand{grid-template-columns:minmax(260px,1fr) minmax(320px,1.4fr)}'
+          new = '.asevj-grid-brand{grid-template-columns:repeat(3,minmax(220px,1fr))}'
+          if old not in s:
+              raise SystemExit('Admin branding-grid CSS anchor not found.')
+          p.write_text(s.replace(old, new))
+
+          # Documentation.
+          p = root / 'README.md'
+          s = p.read_text()
+          s = s.replace('Current release line: **0.2.0-beta.8**.', 'Current release line: **0.2.0-beta.9**.')
+          s = s.replace(
+              '- `{School Name} Logo` → school logo\n- `{School Name} Front` → jacket style featured/product image',
+              '- `{School Name} Logo` → school logo\n- `{School Name} Mascot` → separate mascot artwork\n- `{School Name} Front` → jacket style featured/product image'
+          )
+          p.write_text(s)
+
+          notes = root / 'releases/RELEASE-0.2.0-beta.9.md'
+          notes.write_text('''# All Star Varsity Jackets v0.2.0-beta.9\n\n## Changes\n\n- Added a separate optional Mascot Image field to each school, distinct from the school logo and Mascot Name text.\n- Structured ZIP imports now recognize `{School Name} Mascot` images automatically.\n- Mascot artwork is imported into the WordPress Media Library and assigned to the school without entering the jacket gallery.\n- School Logo and Mascot Image are independently optional; missing either does not block or warn the import.\n- Updated the School Branding editor to show School Logo, Mascot Image, and school colors as separate controls.\n- Preserved the existing Front → featured image and Back → Letter → Sleeve → Detail gallery mapping.\n\n## Compatibility\n\n- WordPress 6.4+\n- PHP 8.0+\n- WooCommerce remains optional\n''')
+
+          # Remove this one-time editing workflow from the resulting source commit.
+          (root / '.github/workflows/apply-beta9-mascot.yml').unlink(missing_ok=True)
+          PY
+
+          php -l all-star-varsity-jackets/all-star-varsity-jackets.php
+          php -l all-star-varsity-jackets/includes/class-asevj-admin.php
+          php -l all-star-varsity-jackets/includes/class-asevj-importer.php
+          node --check all-star-varsity-jackets/assets/admin.js
+          for f in all-star-varsity-jackets/blocks/*/block.json; do python3 -m json.tool "$f" >/dev/null; done
+
+      - name: Commit beta.9 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: add mascot image support for beta.9'
+          git push origin HEAD:main
