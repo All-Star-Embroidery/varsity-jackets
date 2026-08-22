@@ -1,9 +1,9 @@
 {
-  "version": "0.2.0-beta.8",
-  "name": "All Star Varsity Jackets 0.2.0-beta.8",
+  "version": "0.2.0-beta.9",
+  "name": "All Star Varsity Jackets 0.2.0-beta.9",
   "prerelease": true,
-  "package": "https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/asevj-v0.2.0-beta.8/all-star-varsity-jackets-0.2.0-beta.8.zip",
+  "package": "https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/asevj-v0.2.0-beta.9/all-star-varsity-jackets-0.2.0-beta.9.zip",
   "html_url": "https://github.com/rolejarczyk/ASE.VarsityJackets",
-  "published_at": "2026-08-22 17:55:05 +0000",
+  "published_at": "2026-08-22 21:02:38 +0000",
   "body": "GitHub Release asset compatibility bridge. Newer builds use latest.json."
 }
