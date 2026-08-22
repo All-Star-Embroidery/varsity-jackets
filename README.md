@@ -2,7 +2,7 @@
 
 Development and release repository for the All Star Embroidery Varsity Jackets WordPress/WooCommerce plugin.
 
-Current release line: **0.2.0-beta.8**.
+Current release line: **0.2.0-beta.9**.
 
 ## Stable WordPress plugin identity
 
@@ -32,13 +32,16 @@ Do not use repository ZIPs, raw committed ZIPs, or GitHub source archives as the
 A varsity import ZIP can contain a `schools.csv` plus one folder per school. The importer recognizes image roles by filename:
 
 - `{School Name} Logo` → school logo
+- `{School Name} Mascot` → separate mascot artwork
 - `{School Name} Front` → jacket style featured/product image
 - `{School Name} Back` → gallery
 - `{School Name} Letter` → gallery
 - `{School Name} Sleeve` → gallery
 - `{School Name} Detail` → gallery
 
-The CSV can also populate school/initial-style metadata such as mascot, location, district, description, colors, style name/description, price, and CTA. Legacy `image-manifest.csv` imports remain supported as a fallback.
+School Logo and Mascot Image are independently optional. The `Mascot` column in `schools.csv` stores the mascot name text; the `{School Name} Mascot` image stores the actual artwork.
+
+The CSV can also populate school/initial-style metadata such as mascot name, location, district, description, colors, style name/description, price, and CTA. Legacy `image-manifest.csv` imports remain supported as a fallback.
 
 ## Releasing future versions
 
