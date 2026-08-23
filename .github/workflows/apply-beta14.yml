@@ -1,0 +1,175 @@
+name: Apply and publish beta.14
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-beta14.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: asevj-beta14-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  apply-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Apply validated beta.9 to beta.14 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f bootstrap-beta14/beta9-to-beta14.diff.gz.b64
+          base64 --decode bootstrap-beta14/beta9-to-beta14.diff.gz.b64 | gzip -d > /tmp/beta14.patch
+          grep -q 'Version: 0.2.0-beta.9' all-star-varsity-jackets/all-star-varsity-jackets.php
+          patch -p1 < /tmp/beta14.patch
+          grep -q 'Version: 0.2.0-beta.14' all-star-varsity-jackets/all-star-varsity-jackets.php
+          grep -q "define( 'ASEVJ_VERSION', '0.2.0-beta.14' );" all-star-varsity-jackets/all-star-varsity-jackets.php
+
+      - name: Create release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p releases
+          cat > releases/RELEASE-0.2.0-beta.14.md <<'EOF'
+          # All Star Varsity Jackets 0.2.0-beta.14
+
+          ## Changes
+          - Rebuilt Browse by School around a gallery-first selected-style experience.
+          - Replaced the long school-description/product-card layout with a compact Style 1 / Style 2 / Style 3 selector that updates the active jacket gallery instantly.
+          - Added a large featured Front image plus supporting Back, Letter, Sleeve, Detail and additional gallery images.
+          - Restored an always-visible Available Customizations presentation for chenille, tackle twill, embroidery, patches, and names/numerals.
+          - Added responsive desktop, split-window, tablet, and mobile layouts for Browse by School.
+          - Includes beta.13 responsive-safe hero positioning fixes.
+          - Includes beta.12 School and Jacket Style editor save/redirect fixes.
+          - Includes beta.11 structured CSV/BOM, school metadata, logo, mascot, style description and feature import fixes.
+          - Includes beta.10 multi-style folder import support.
+          EOF
+
+      - name: Validate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do php -l "$file"; done < <(find all-star-varsity-jackets -type f -name '*.php' -print0)
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find all-star-varsity-jackets -type f -name '*.js' -print0)
+          while IFS= read -r -d '' file; do python3 -m json.tool "$file" >/dev/null; done < <(find all-star-varsity-jackets/blocks -type f -name 'block.json' -print0)
+
+      - name: Build WordPress ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='0.2.0-beta.14'
+          BUILD='/tmp/asevj-beta14-build'
+          ZIP="$GITHUB_WORKSPACE/all-star-varsity-jackets-${VERSION}.zip"
+          rm -rf "$BUILD" "$ZIP"
+          mkdir -p "$BUILD/all-star-varsity-jackets"
+          cp -R all-star-varsity-jackets/. "$BUILD/all-star-varsity-jackets/"
+          rm -rf "$BUILD/all-star-varsity-jackets/.git" "$BUILD/all-star-varsity-jackets/.github" "$BUILD/all-star-varsity-jackets/tests" "$BUILD/all-star-varsity-jackets/node_modules"
+          cd "$BUILD"
+          zip -qr "$ZIP" all-star-varsity-jackets
+          unzip -t "$ZIP" >/dev/null
+          test "$(zipinfo -1 "$ZIP" | awk -F/ 'NF {print $1}' | sort -u)" = 'all-star-varsity-jackets'
+          zipinfo -1 "$ZIP" | grep -q '^all-star-varsity-jackets/all-star-varsity-jackets.php$'
+
+      - name: Publish beta.14 GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='0.2.0-beta.14'
+          TAG='asevj-v0.2.0-beta.14'
+          ZIP="all-star-varsity-jackets-${VERSION}.zip"
+          NOTES="releases/RELEASE-${VERSION}.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+            gh release edit "$TAG" --title "All Star Varsity Jackets v${VERSION}" --notes-file "$NOTES" --prerelease
+          else
+            gh release create "$TAG" "$ZIP" --target main --title "All Star Varsity Jackets v${VERSION}" --notes-file "$NOTES" --prerelease
+          fi
+          EXPECTED="https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/${TAG}/${ZIP}"
+          curl --fail --location --retry 4 --retry-delay 2 "$EXPECTED" -o /tmp/asevj-beta14-verify.zip
+          unzip -t /tmp/asevj-beta14-verify.zip >/dev/null
+          zipinfo -1 /tmp/asevj-beta14-verify.zip | grep -q '^all-star-varsity-jackets/all-star-varsity-jackets.php$'
+
+      - name: Update WordPress updater manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          version = '0.2.0-beta.14'
+          tag = 'asevj-v0.2.0-beta.14'
+          zip_name = 'all-star-varsity-jackets-0.2.0-beta.14.zip'
+          download = f'https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/{tag}/{zip_name}'
+          now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S +0000')
+          changes = [
+              'Gallery-first Browse by School experience with selectable jacket styles.',
+              'Featured Front image plus Back, Letter, Sleeve, Detail and additional gallery images.',
+              'Available Customizations panel restored and responsive.',
+              'Responsive Browse by School layouts for desktop, split-window, tablet, and mobile.',
+              'Includes beta.10-beta.13 importer, editor-saving, and hero responsiveness fixes.'
+          ]
+          changelog = '<h4>0.2.0-beta.14</h4><ul>' + ''.join(f'<li>{x}</li>' for x in changes) + '</ul>'
+          latest = {
+              'name': 'All Star Varsity Jackets',
+              'slug': 'all-star-varsity-jackets',
+              'version': version,
+              'download_url': download,
+              'homepage': 'https://github.com/rolejarczyk/ASE.VarsityJackets',
+              'requires': '6.4',
+              'tested': '6.8',
+              'requires_php': '8.0',
+              'last_updated': now,
+              'description': 'School-based varsity jacket collections with structured school imports, live Gutenberg blocks, gallery management, and optional WooCommerce products for All Star Embroidery.',
+              'changelog': changelog,
+          }
+          legacy = {
+              'version': version,
+              'name': f'All Star Varsity Jackets {version}',
+              'prerelease': True,
+              'package': download,
+              'html_url': 'https://github.com/rolejarczyk/ASE.VarsityJackets',
+              'published_at': now,
+              'body': 'GitHub Release asset compatibility bridge. Newer builds use latest.json.',
+          }
+          open('latest.json','w',encoding='utf-8').write(json.dumps(latest,indent=2)+'\n')
+          open('update.json','w',encoding='utf-8').write(json.dumps(legacy,indent=2)+'\n')
+          PY
+
+      - name: Commit beta.14 source, manifests, and cleanup bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf bootstrap-beta14
+          rm -f .github/workflows/apply-beta14.yml
+          rm -f .github/workflows/apply-beta10-style-folders.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'release: publish All Star Varsity Jackets 0.2.0-beta.14'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Verify public manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED='https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/asevj-v0.2.0-beta.14/all-star-varsity-jackets-0.2.0-beta.14.zip'
+          sleep 3
+          curl --fail --location --retry 5 --retry-delay 2 "https://raw.githubusercontent.com/rolejarczyk/ASE.VarsityJackets/main/latest.json?run=${GITHUB_RUN_ID}" -o /tmp/latest.json
+          python3 - <<PY
+          import json
+          d=json.load(open('/tmp/latest.json'))
+          assert d['version']=='0.2.0-beta.14', d
+          assert d['download_url']=="$EXPECTED", d
+          print('AUTO-UPDATE MANIFEST VERIFIED:', d['version'], d['download_url'])
+          PY
