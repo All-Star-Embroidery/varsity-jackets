@@ -153,6 +153,7 @@ jobs:
           rm -rf bootstrap-beta14
           rm -f .github/workflows/apply-beta14.yml
           rm -f .github/workflows/apply-beta10-style-folders.yml
+          rm -f .github/workflows/kick-beta14.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
@@ -174,3 +175,5 @@ jobs:
           assert d['download_url']=="$EXPECTED", d
           print('AUTO-UPDATE MANIFEST VERIFIED:', d['version'], d['download_url'])
           PY
+
+# merged PR trigger
