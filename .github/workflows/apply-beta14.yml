@@ -119,11 +119,12 @@ jobs:
               'Includes beta.10-beta.13 importer, editor-saving, and hero responsiveness fixes.'
           ]
           changelog = '<h4>0.2.0-beta.14</h4><ul>' + ''.join(f'<li>{x}</li>' for x in changes) + '</ul>'
+          download_url = download
           latest = {
               'name': 'All Star Varsity Jackets',
               'slug': 'all-star-varsity-jackets',
               'version': version,
-              'download_url': download,
+              'download_url': download_url,
               'homepage': 'https://github.com/rolejarczyk/ASE.VarsityJackets',
               'requires': '6.4',
               'tested': '6.8',
@@ -136,7 +137,7 @@ jobs:
               'version': version,
               'name': f'All Star Varsity Jackets {version}',
               'prerelease': True,
-              'package': download,
+              'package': download_url,
               'html_url': 'https://github.com/rolejarczyk/ASE.VarsityJackets',
               'published_at': now,
               'body': 'GitHub Release asset compatibility bridge. Newer builds use latest.json.',
@@ -173,3 +174,5 @@ jobs:
           assert d['download_url']=="$EXPECTED", d
           print('AUTO-UPDATE MANIFEST VERIFIED:', d['version'], d['download_url'])
           PY
+
+# retriggered after initial workflow creation
