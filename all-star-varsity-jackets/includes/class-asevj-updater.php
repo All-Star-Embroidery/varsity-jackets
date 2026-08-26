@@ -18,7 +18,7 @@ final class ASEVJ_Updater {
     private const PLUGIN_SLUG = 'all-star-varsity-jackets';
     private const RELEASE_REPO = 'All-Star-Embroidery/varsity-jackets';
     private const UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json';
-    private const UPDATE_CACHE_KEY = 'all-star-varsity-jackets_github_update_manifest_v2';
+    private const UPDATE_CACHE_KEY = 'all-star-varsity-jackets_github_update_manifest_v3';
     private const UPDATE_CACHE_TTL = 1800;
 
     public static function instance(): ASEVJ_Updater {
@@ -49,7 +49,9 @@ final class ASEVJ_Updater {
 
     public static function clear_cache(): void {
         delete_site_transient( self::UPDATE_CACHE_KEY );
-        // Clear the pre-organization cache key once during the migration line.
+        // Clear all pre-organization / migration-era cache keys so installs do
+        // not keep stale manifests after upgrading to the organization channel.
+        delete_site_transient( 'all-star-varsity-jackets_github_update_manifest_v2' );
         delete_site_transient( 'all-star-varsity-jackets_github_update_manifest' );
     }
 
@@ -64,11 +66,17 @@ final class ASEVJ_Updater {
             }
         }
 
+        $url = self::UPDATE_MANIFEST_URL;
+        if ( $force ) {
+            $url .= '?v=' . rawurlencode( (string) time() );
+        }
+
         $response = wp_remote_get(
-            self::UPDATE_MANIFEST_URL,
+            $url,
             [
-                'timeout'   => 8,
+                'timeout'   => 10,
                 'sslverify' => true,
+                'redirection' => 5,
                 'headers'   => [
                     'Accept'     => 'application/json',
                     'User-Agent' => 'All-Star-Varsity-Jackets/' . ASEVJ_VERSION,
@@ -138,8 +146,9 @@ final class ASEVJ_Updater {
         $path = (string) ( $parts['path'] ?? '' );
         $allowed_prefixes = [
             '/All-Star-Embroidery/varsity-jackets/releases/download/',
-            // Transitional compatibility for pre-migration manifests/redirects.
-            '/All-Star-Embroidery/varsity-jackets/releases/download/',
+            // Transitional compatibility for installs/manifests created before
+            // the repository moved into the All-Star-Embroidery organization.
+            '/rolejarczyk/ASE.VarsityJackets/releases/download/',
         ];
 
         foreach ( $allowed_prefixes as $prefix ) {
