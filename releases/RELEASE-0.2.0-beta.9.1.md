@@ -8,6 +8,7 @@
 - Bumped the updater cache key and clears the pre-migration cache key after upgrades so WordPress does not reuse stale personal-account release metadata.
 - Keeps the former Release path as a temporary validation fallback for migration compatibility; all newly generated release metadata uses the organization repository.
 - Disabled the broken five-minute v1.0.0 bootstrap schedule. The one-time v1 workflow remains manual until its existing corrupt beta.14 bootstrap payload is repaired.
+- Retired the stale automatic beta.10 and beta.14 bootstrap workflow files so they cannot race the normal release pipeline after migration.
 - No storefront, importer, school data, WooCommerce product behavior, pricing, or design behavior changed in this migration release.
 
 ## WordPress migration note
