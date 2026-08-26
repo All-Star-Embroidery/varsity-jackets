@@ -1,9 +1,9 @@
 {
-  "version": "0.2.0-beta.9",
-  "name": "All Star Varsity Jackets 0.2.0-beta.9",
-  "prerelease": true,
-  "package": "https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/asevj-v0.2.0-beta.9/all-star-varsity-jackets-0.2.0-beta.9.zip",
-  "html_url": "https://github.com/rolejarczyk/ASE.VarsityJackets",
-  "published_at": "2026-08-22 21:02:38 +0000",
-  "body": "GitHub Release asset compatibility bridge. Newer builds use latest.json."
+  "version": "1.0.3",
+  "name": "All Star Varsity Jackets 1.0.3",
+  "prerelease": false,
+  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.3/all-star-varsity-jackets-1.0.3.zip",
+  "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
+  "published_at": "2026-08-26 16:12:08 +0000",
+  "body": "Current All Star Varsity Jackets release. v1.0.3 improves responsive jacket-detail galleries and the Customize Jacket purchase flow."
 }
