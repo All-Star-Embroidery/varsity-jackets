@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish, e.g. 0.2.0-beta.8"
+        description: "Version to publish, e.g. 0.2.0-beta.9.1"
         required: true
         type: string
   push:
@@ -202,7 +202,7 @@ jobs:
           VERSION='${{ steps.pkg.outputs.version }}'
           ZIP='${{ steps.pkg.outputs.zip }}'
           TAG='${{ steps.pkg.outputs.tag }}'
-          EXPECTED_URL="https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/${TAG}/${ZIP}"
+          EXPECTED_URL="https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/${TAG}/${ZIP}"
 
           ASSET_URL=$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name == \"$ZIP\") | .url" | head -n1)
           test -n "$ASSET_URL" || { echo 'Release asset was not found after upload.' >&2; exit 1; }
@@ -252,7 +252,7 @@ jobs:
               changelog += "<ul>" + "".join(f"<li>{html.escape(x)}</li>" for x in bullets) + "</ul>"
 
           download_url = (
-              f"https://github.com/rolejarczyk/ASE.VarsityJackets/"
+              f"https://github.com/All-Star-Embroidery/varsity-jackets/"
               f"releases/download/{tag}/{zip_name}"
           )
           now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S +0000")
@@ -262,7 +262,7 @@ jobs:
               "slug": "all-star-varsity-jackets",
               "version": version,
               "download_url": download_url,
-              "homepage": "https://github.com/rolejarczyk/ASE.VarsityJackets",
+              "homepage": "https://github.com/All-Star-Embroidery/varsity-jackets",
               "requires": "6.4",
               "tested": "6.8",
               "requires_php": "8.0",
@@ -272,13 +272,13 @@ jobs:
           }
           Path("latest.json").write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
 
-          # Temporary compatibility bridge for beta.7 and earlier updater clients.
+          # Compatibility bridge for older updater clients.
           legacy = {
               "version": version,
               "name": f"All Star Varsity Jackets {version}",
               "prerelease": bool(re.search(r"(?:alpha|beta|rc)", version, re.I)),
               "package": download_url,
-              "html_url": "https://github.com/rolejarczyk/ASE.VarsityJackets",
+              "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
               "published_at": now,
               "body": "GitHub Release asset compatibility bridge. Newer builds use latest.json.",
           }
@@ -300,11 +300,11 @@ jobs:
           VERSION='${{ steps.pkg.outputs.version }}'
           TAG='${{ steps.pkg.outputs.tag }}'
           ZIP='${{ steps.pkg.outputs.zip }}'
-          EXPECTED="https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/${TAG}/${ZIP}"
+          EXPECTED="https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/${TAG}/${ZIP}"
 
           sleep 3
           curl --fail --location --retry 5 --retry-delay 2 \
-            "https://raw.githubusercontent.com/rolejarczyk/ASE.VarsityJackets/main/latest.json?run=${GITHUB_RUN_ID}" \
+            "https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json?run=${GITHUB_RUN_ID}" \
             -o /tmp/latest.json
 
           python3 - <<PY

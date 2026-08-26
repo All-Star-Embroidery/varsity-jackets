@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Native WordPress update client for GitHub Release assets.
  *
  * Release contract:
- * - Public manifest: https://raw.githubusercontent.com/rolejarczyk/ASE.VarsityJackets/main/latest.json
+ * - Public manifest: https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json
  * - Package URL: genuine GitHub Release asset under /releases/download/...
  * - Stable plugin basename: all-star-varsity-jackets/all-star-varsity-jackets.php
  */
@@ -16,9 +16,9 @@ final class ASEVJ_Updater {
 
     private const PLUGIN_NAME = 'All Star Varsity Jackets';
     private const PLUGIN_SLUG = 'all-star-varsity-jackets';
-    private const RELEASE_REPO = 'rolejarczyk/ASE.VarsityJackets';
-    private const UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/rolejarczyk/ASE.VarsityJackets/main/latest.json';
-    private const UPDATE_CACHE_KEY = 'all-star-varsity-jackets_github_update_manifest';
+    private const RELEASE_REPO = 'All-Star-Embroidery/varsity-jackets';
+    private const UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json';
+    private const UPDATE_CACHE_KEY = 'all-star-varsity-jackets_github_update_manifest_v2';
     private const UPDATE_CACHE_TTL = 1800;
 
     public static function instance(): ASEVJ_Updater {
@@ -49,6 +49,8 @@ final class ASEVJ_Updater {
 
     public static function clear_cache(): void {
         delete_site_transient( self::UPDATE_CACHE_KEY );
+        // Clear the pre-organization cache key once during the migration line.
+        delete_site_transient( 'all-star-varsity-jackets_github_update_manifest' );
     }
 
     /**
@@ -134,8 +136,19 @@ final class ASEVJ_Updater {
         }
 
         $path = (string) ( $parts['path'] ?? '' );
-        return false !== strpos( $path, '/rolejarczyk/ASE.VarsityJackets/releases/download/' )
-            && str_ends_with( strtolower( $path ), '.zip' );
+        $allowed_prefixes = [
+            '/All-Star-Embroidery/varsity-jackets/releases/download/',
+            // Transitional compatibility for pre-migration manifests/redirects.
+            '/rolejarczyk/ASE.VarsityJackets/releases/download/',
+        ];
+
+        foreach ( $allowed_prefixes as $prefix ) {
+            if ( false !== strpos( $path, $prefix ) && str_ends_with( strtolower( $path ), '.zip' ) ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function inject_github_update( $transient ) {
