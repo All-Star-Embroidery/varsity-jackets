@@ -1,0 +1,162 @@
+name: Finalize Varsity Jackets Organization Migration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-org-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download authoritative v1.0.3 release package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/asevj-org-migration
+          mkdir -p /tmp/asevj-org-migration/package
+          cp all-star-varsity-jackets/includes/class-asevj-updater.php /tmp/asevj-org-updater.php
+          gh release download v1.0.3 \
+            --pattern 'all-star-varsity-jackets-1.0.3.zip' \
+            --dir /tmp/asevj-org-migration
+          unzip -q /tmp/asevj-org-migration/all-star-varsity-jackets-1.0.3.zip \
+            -d /tmp/asevj-org-migration/package
+          test -f /tmp/asevj-org-migration/package/all-star-varsity-jackets/all-star-varsity-jackets.php
+
+      - name: Make v1.0.3 package organization-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLUGIN='/tmp/asevj-org-migration/package/all-star-varsity-jackets'
+
+          # Preserve the already-migrated updater client from the organization repo.
+          cp /tmp/asevj-org-updater.php "$PLUGIN/includes/class-asevj-updater.php"
+
+          # Replace any remaining operational references to the old personal repository.
+          while IFS= read -r -d '' file; do
+            sed -i 's#rolejarczyk/ASE\.VarsityJackets#All-Star-Embroidery/varsity-jackets#g' "$file"
+          done < <(grep -RIlZ 'rolejarczyk/ASE.VarsityJackets' "$PLUGIN" || true)
+
+          grep -q '^ \* Version: 1.0.3$' "$PLUGIN/all-star-varsity-jackets.php"
+          grep -q "define( 'ASEVJ_VERSION', '1.0.3' );" "$PLUGIN/all-star-varsity-jackets.php"
+          grep -q 'Update URI: https://github.com/All-Star-Embroidery/varsity-jackets' "$PLUGIN/all-star-varsity-jackets.php"
+          grep -q "RELEASE_REPO = 'All-Star-Embroidery/varsity-jackets'" "$PLUGIN/includes/class-asevj-updater.php"
+          grep -q 'raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json' "$PLUGIN/includes/class-asevj-updater.php"
+
+      - name: Validate package source
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLUGIN='/tmp/asevj-org-migration/package/all-star-varsity-jackets'
+
+          while IFS= read -r -d '' file; do
+            php -l "$file"
+          done < <(find "$PLUGIN" -type f -name '*.php' -print0)
+
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find "$PLUGIN" -type f -name '*.js' -print0)
+
+          while IFS= read -r -d '' file; do
+            python3 -m json.tool "$file" >/dev/null
+          done < <(find "$PLUGIN/blocks" -type f -name 'block.json' -print0)
+
+      - name: Rebuild and replace v1.0.3 WordPress asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/asevj-org-migration/package
+          zip -qr /tmp/asevj-org-migration/all-star-varsity-jackets-1.0.3-org.zip all-star-varsity-jackets
+          unzip -t /tmp/asevj-org-migration/all-star-varsity-jackets-1.0.3-org.zip >/dev/null
+
+          cp /tmp/asevj-org-migration/all-star-varsity-jackets-1.0.3-org.zip \
+             /tmp/asevj-org-migration/all-star-varsity-jackets-1.0.3.zip
+
+          cd "$GITHUB_WORKSPACE"
+          gh release upload v1.0.3 \
+            /tmp/asevj-org-migration/all-star-varsity-jackets-1.0.3.zip \
+            --clobber
+          gh release edit v1.0.3 \
+            --title 'All Star Varsity Jackets v1.0.3' \
+            --notes-file releases/RELEASE-1.0.3.md \
+            --latest
+
+      - name: Synchronize main source to production v1.0.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf all-star-varsity-jackets
+          cp -R /tmp/asevj-org-migration/package/all-star-varsity-jackets ./all-star-varsity-jackets
+
+          # Keep future release tags consistent with the organization repository.
+          sed -i 's#echo "tag=asevj-v\$VERSION"#echo "tag=v\$VERSION"#' \
+            .github/workflows/publish-plugin-release.yml
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('README.md')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace(
+              'The current v1.0.3 package was uploaded directly as a GitHub Release asset. The source tree on `main` should be synchronized from the authoritative v1.0.3 package before the next code release; do not promote stale beta source as though it were v1.0.3.',
+              'The `main` source tree is synchronized to the authoritative v1.0.3 production package. Future releases should always begin from the current v1.x source in this organization repository.'
+          )
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit organization-native production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          # This migration workflow is intentionally one-time.
+          rm -f .github/workflows/finalize-org-migration.yml
+
+          git add -A
+          git commit -m 'chore: make organization repo authoritative for v1.0.3' || true
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Verify release metadata and updater routing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BODY=$(gh release view v1.0.3 --json body --jq .body)
+          test -n "$BODY"
+
+          rm -f /tmp/asevj-v1.0.3-verify.zip
+          curl --fail --location --retry 4 --retry-delay 2 \
+            'https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.3/all-star-varsity-jackets-1.0.3.zip' \
+            -o /tmp/asevj-v1.0.3-verify.zip
+          unzip -t /tmp/asevj-v1.0.3-verify.zip >/dev/null
+          unzip -p /tmp/asevj-v1.0.3-verify.zip \
+            all-star-varsity-jackets/includes/class-asevj-updater.php \
+            | grep -q 'All-Star-Embroidery/varsity-jackets'
+
+          curl --fail --location --retry 4 --retry-delay 2 \
+            'https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json' \
+            -o /tmp/asevj-latest.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open('/tmp/asevj-latest.json'))
+          assert data['version'] == '1.0.3', data
+          assert 'All-Star-Embroidery/varsity-jackets' in data['download_url'], data
+          print('Organization update channel verified:', data['download_url'])
+          PY
