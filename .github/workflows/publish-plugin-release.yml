@@ -1,18 +1,16 @@
 name: Publish WordPress Plugin Release
 
+# Manual-only by design. GitHub Actions minutes are limited, so ordinary pushes,
+# documentation edits, migrations, and historical-version preservation must not
+# consume runner time. Run this workflow only when intentionally publishing a
+# real current plugin release.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish, e.g. 0.2.0-beta.9.1"
+        description: "Version to publish, e.g. 1.0.4"
         required: true
         type: string
-  push:
-    branches: [main]
-    paths:
-      - 'all-star-varsity-jackets/**'
-      - 'releases/RELEASE-*.md'
-      - '.github/workflows/publish-plugin-release.yml'
 
 permissions:
   contents: write
@@ -31,46 +29,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: One-time beta.8 source bootstrap
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if ! compgen -G 'bootstrap-beta8/part-*.b64' > /dev/null; then
-            exit 0
-          fi
-
-          echo 'Reconstructing validated beta.8 source package...'
-          cat bootstrap-beta8/part-*.b64 | base64 --decode > /tmp/asevj-beta8.zip
-          unzip -t /tmp/asevj-beta8.zip >/dev/null
-
-          TOP_LEVEL=$(zipinfo -1 /tmp/asevj-beta8.zip | awk -F/ 'NF {print $1}' | sort -u)
-          test "$TOP_LEVEL" = 'all-star-varsity-jackets' || {
-            echo "Unexpected bootstrap ZIP root(s): $TOP_LEVEL" >&2
-            exit 1
-          }
-          zipinfo -1 /tmp/asevj-beta8.zip | grep -q '^all-star-varsity-jackets/all-star-varsity-jackets.php$'
-
-          rm -rf all-star-varsity-jackets
-          unzip -q /tmp/asevj-beta8.zip -d .
-
-          # Remove temporary transport/history that should not be the source or package architecture.
-          rm -rf bootstrap bootstrap-beta8
-          find releases -maxdepth 1 -type f -name '*.zip' -delete 2>/dev/null || true
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m 'chore: publish beta.8 plugin source [skip ci]'
-            git push origin HEAD:main
-          fi
-
       - name: Resolve and validate version
         id: pkg
         shell: bash
         env:
-          REQUESTED_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
 
@@ -82,12 +45,10 @@ jobs:
           test "$HEADER_VERSION" = "$INTERNAL_VERSION"
           [[ "$HEADER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]
 
-          if [ -n "$REQUESTED_VERSION" ]; then
-            test "$REQUESTED_VERSION" = "$HEADER_VERSION" || {
-              echo "Requested version $REQUESTED_VERSION does not match plugin source $HEADER_VERSION" >&2
-              exit 1
-            }
-          fi
+          test "$REQUESTED_VERSION" = "$HEADER_VERSION" || {
+            echo "Requested version $REQUESTED_VERSION does not match plugin source $HEADER_VERSION" >&2
+            exit 1
+          }
 
           VERSION="$HEADER_VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -272,7 +233,6 @@ jobs:
           }
           Path("latest.json").write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
 
-          # Compatibility bridge for older updater clients.
           legacy = {
               "version": version,
               "name": f"All Star Varsity Jackets {version}",
