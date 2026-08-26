@@ -1,13 +1,13 @@
 {
   "name": "All Star Varsity Jackets",
   "slug": "all-star-varsity-jackets",
-  "version": "0.2.0-beta.9",
-  "download_url": "https://github.com/rolejarczyk/ASE.VarsityJackets/releases/download/asevj-v0.2.0-beta.9/all-star-varsity-jackets-0.2.0-beta.9.zip",
-  "homepage": "https://github.com/rolejarczyk/ASE.VarsityJackets",
+  "version": "1.0.3",
+  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.3/all-star-varsity-jackets-1.0.3.zip",
+  "homepage": "https://github.com/All-Star-Embroidery/varsity-jackets",
   "requires": "6.4",
   "tested": "6.8",
   "requires_php": "8.0",
-  "last_updated": "2026-08-22 21:02:38 +0000",
+  "last_updated": "2026-08-26 16:12:08 +0000",
   "description": "School-based varsity jacket collections with structured school imports, live Gutenberg blocks, gallery management, and optional WooCommerce products for All Star Embroidery.",
-  "changelog": "<h4>0.2.0-beta.9</h4><ul><li>Added a separate optional **Mascot Image** field for each school, independent of the School Logo and Mascot Name text.</li><li>Structured ZIP imports now recognize `{School Name} Mascot` automatically.</li><li>Mascot artwork is imported to the WordPress Media Library and assigned to the school; it is not added to the jacket gallery.</li><li>School Logo and Mascot Image are independently optional and may be omitted without blocking the structured import.</li><li>Preserved the existing image mapping: Front \u2192 featured/product image, Back \u2192 Letter \u2192 Sleeve \u2192 Detail \u2192 gallery.</li><li>Updated importer guidance so the `Mascot` CSV column is clearly the mascot name text, while the mascot image comes from the named image file.</li></ul>"
+  "changelog": "<h4>1.0.3</h4><ul><li>Fixed tablet and phone jacket-detail images overflowing the gallery by containing media and capping viewport height.</li><li>Added Customize Jacket beside View Jacket Details, with style changes updating the correct WooCommerce link.</li><li>Made the popup CTA sticky at the bottom and included the starting price.</li><li>Gallery clicks now open the selected photo, with improved active-thumbnail styling.</li><li>Mobile action buttons now use an even two-button row.</li></ul>"
 }
