@@ -8,6 +8,6 @@
   "tested": "6.8",
   "requires_php": "8.0",
   "last_updated": "2026-08-26 16:12:08 +0000",
-  "description": "School-based varsity jacket collections with structured school imports, live Gutenberg blocks, gallery management, and optional WooCommerce products for All Star Embroidery.",
+  "description": "All Star Embroidery's WordPress/WooCommerce varsity jacket system with school browsing, multiple jacket styles per school, responsive image galleries, structured ZIP/CSV imports, live Gutenberg blocks, and WooCommerce product tools.",
   "changelog": "<h4>1.0.3</h4><ul><li>Fixed tablet and phone jacket-detail images overflowing the gallery by containing media and capping viewport height.</li><li>Added Customize Jacket beside View Jacket Details, with style changes updating the correct WooCommerce link.</li><li>Made the popup CTA sticky at the bottom and included the starting price.</li><li>Gallery clicks now open the selected photo, with improved active-thumbnail styling.</li><li>Mobile action buttons now use an even two-button row.</li></ul>"
 }
