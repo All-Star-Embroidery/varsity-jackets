@@ -108,6 +108,7 @@ final class ASEVJ_Render {
                             'full'  => $full,
                             'thumb' => $thumb ?: $full,
                             'alt'   => get_post_meta( $gallery_id, '_wp_attachment_image_alt', true ) ?: get_the_title( $gallery_id ),
+                            'role'  => sanitize_key( (string) get_post_meta( $gallery_id, '_asevj_import_role', true ) ),
                         ];
                     }
                 }
@@ -271,6 +272,71 @@ final class ASEVJ_Render {
         return (string) ob_get_clean();
     }
 
+    private static function gallery_label( array $image, int $fallback_index = 0 ): string {
+        $role = sanitize_key( (string) ( $image['role'] ?? '' ) );
+        $labels = [
+            'back'   => 'BACK VIEW',
+            'letter' => 'LETTER DETAIL',
+            'sleeve' => 'SLEEVE DETAIL',
+            'detail' => 'DETAIL VIEW',
+        ];
+        if ( isset( $labels[ $role ] ) ) {
+            return $labels[ $role ];
+        }
+        $alt = strtolower( (string) ( $image['alt'] ?? '' ) );
+        foreach ( [ 'back' => 'BACK VIEW', 'letter' => 'LETTER DETAIL', 'sleeve' => 'SLEEVE DETAIL', 'detail' => 'DETAIL VIEW' ] as $needle => $label ) {
+            if ( str_contains( $alt, $needle ) ) {
+                return $label;
+            }
+        }
+        return 'DETAIL ' . ( $fallback_index + 1 );
+    }
+
+    private static function render_style_selector_markup( array $styles ): string {
+        ob_start();
+        foreach ( $styles as $index => $style ) : ?>
+            <button type="button" class="asevj-style-choice<?php echo 0 === $index ? ' is-active' : ''; ?>" data-asevj-style-choice="<?php echo esc_attr( $index ); ?>">
+                <span>STYLE <?php echo esc_html( $style['number'] ); ?></span>
+                <strong><?php echo esc_html( $style['name'] ); ?></strong>
+                <?php if ( ! empty( $style['subtitle'] ) ) : ?><small><?php echo esc_html( $style['subtitle'] ); ?></small><?php endif; ?>
+            </button>
+        <?php endforeach;
+        return (string) ob_get_clean();
+    }
+
+    private static function render_selected_gallery_markup( array $style ): string {
+        $images = [];
+        if ( ! empty( $style['imageFull'] ) || ! empty( $style['image'] ) ) {
+            $images[] = [
+                'full' => $style['imageFull'] ?: $style['image'],
+                'thumb' => $style['image'] ?: $style['imageFull'],
+                'alt' => $style['name'],
+                'role' => 'front',
+            ];
+        }
+        foreach ( (array) ( $style['gallery'] ?? [] ) as $image ) {
+            $images[] = $image;
+        }
+        if ( ! $images ) {
+            return '<div class="asevj-selected-gallery is-empty"><span>No jacket photography added yet.</span></div>';
+        }
+
+        $visible = array_slice( $images, 0, 5 );
+        $extra = max( 0, count( $images ) - count( $visible ) );
+        ob_start(); ?>
+        <div class="asevj-selected-gallery<?php echo count( $visible ) <= 2 ? ' has-few-images' : ''; ?>">
+            <?php foreach ( $visible as $index => $image ) :
+                $label = 0 === $index ? 'FEATURED JACKET' : self::gallery_label( $image, $index - 1 ); ?>
+                <button type="button" class="asevj-gallery-tile<?php echo 0 === $index ? ' is-main' : ''; ?>" data-asevj-gallery-image="<?php echo esc_attr( $index ); ?>" aria-label="Open <?php echo esc_attr( $label ); ?>">
+                    <img src="<?php echo esc_url( $image['thumb'] ?: $image['full'] ); ?>" alt="<?php echo esc_attr( $image['alt'] ?? $style['name'] ); ?>">
+                    <span><?php echo esc_html( $label ); ?></span>
+                    <?php if ( $extra && $index === count( $visible ) - 1 ) : ?><b>+<?php echo esc_html( $extra ); ?> MORE</b><?php endif; ?>
+                </button>
+            <?php endforeach; ?>
+        </div>
+        <?php return (string) ob_get_clean();
+    }
+
     private static function block_color( array $attributes, string $key, string $fallback = '' ): string {
         $value = isset( $attributes[ $key ] ) ? sanitize_hex_color( (string) $attributes[ $key ] ) : '';
         return $value ?: $fallback;
@@ -325,6 +391,72 @@ final class ASEVJ_Render {
         $hero_style .= '--asevj-hero-jacket-y:' . min( 260, max( -260, intval( $attributes['jacketOffsetY'] ?? 0 ) ) ) . 'px;';
         $hero_style .= '--asevj-hero-glow-x:' . min( 40, max( -40, intval( $attributes['glowOffsetX'] ?? 0 ) ) ) . '%;';
         $hero_style .= '--asevj-hero-glow-y:' . min( 40, max( -40, intval( $attributes['glowOffsetY'] ?? 0 ) ) ) . '%;';
+        // Mobile can either remain an independent responsive composition or,
+        // for a dedicated mobile-only duplicate block, intentionally reuse the
+        // normal Hero controls. This makes the editor behave the way the user
+        // expects when desktop and mobile Hero blocks are separated by device.
+        $mobile_use_main = ! empty( $attributes['mobileUseMainControls'] );
+
+        if ( $mobile_use_main ) {
+            $mobile_title = ! empty( $attributes['titleSize'] )
+                ? min( 110, max( 26, absint( $attributes['titleSize'] ) ) ) . 'px'
+                : 'clamp(34px,10.5vw,44px)';
+            $mobile_kicker = ! empty( $attributes['kickerSize'] )
+                ? min( 32, max( 10, absint( $attributes['kickerSize'] ) ) ) . 'px'
+                : 'clamp(11px,3.3vw,14px)';
+            $mobile_body = ! empty( $attributes['bodySize'] )
+                ? min( 28, max( 11, absint( $attributes['bodySize'] ) ) ) . 'px'
+                : 'clamp(12px,3.4vw,14px)';
+            $mobile_pad_x = ! empty( $attributes['contentPaddingX'] )
+                ? min( 160, max( 0, absint( $attributes['contentPaddingX'] ) ) ) . 'px'
+                : 'clamp(20px,6vw,28px)';
+            $mobile_pad_y = ! empty( $attributes['contentPaddingY'] )
+                ? min( 140, max( 0, absint( $attributes['contentPaddingY'] ) ) ) . 'px'
+                : 'clamp(28px,8vw,40px)';
+            $mobile_feature_scale = min( 180, max( 40, absint( $attributes['featureScale'] ?? 100 ) ) );
+            $mobile_jacket_scale = min( 160, max( 40, absint( $attributes['jacketScale'] ?? 100 ) ) );
+            $mobile_content_x = min( 320, max( -320, intval( $attributes['contentOffsetX'] ?? 0 ) ) );
+            $mobile_content_y = min( 220, max( -220, intval( $attributes['contentOffsetY'] ?? 0 ) ) );
+            $mobile_feature_x = min( 220, max( -220, intval( $attributes['featureOffsetX'] ?? 0 ) ) );
+            $mobile_feature_y = min( 180, max( -180, intval( $attributes['featureOffsetY'] ?? 0 ) ) );
+            $mobile_jacket_x = min( 360, max( -360, intval( $attributes['jacketOffsetX'] ?? 0 ) ) );
+            $mobile_jacket_y = min( 260, max( -260, intval( $attributes['jacketOffsetY'] ?? 0 ) ) );
+        } else {
+            $mobile_title = ! empty( $attributes['mobileTitleSize'] )
+                ? min( 64, max( 26, absint( $attributes['mobileTitleSize'] ) ) ) . 'px'
+                : 'clamp(34px,10.5vw,44px)';
+            $mobile_kicker = 'clamp(11px,3.3vw,14px)';
+            $mobile_body = 'clamp(12px,3.4vw,14px)';
+            $mobile_pad_x = ! empty( $attributes['mobileContentPaddingX'] )
+                ? min( 72, max( 10, absint( $attributes['mobileContentPaddingX'] ) ) ) . 'px'
+                : 'clamp(20px,6vw,28px)';
+            $mobile_pad_y = ! empty( $attributes['mobileContentPaddingY'] )
+                ? min( 100, max( 12, absint( $attributes['mobileContentPaddingY'] ) ) ) . 'px'
+                : 'clamp(28px,8vw,40px)';
+            $mobile_feature_scale = min( 130, max( 60, absint( $attributes['mobileFeatureScale'] ?? 0 ) ?: 92 ) );
+            $mobile_jacket_scale = min( 135, max( 55, absint( $attributes['mobileJacketScale'] ?? 0 ) ?: 88 ) );
+            $mobile_content_x = min( 120, max( -120, intval( $attributes['mobileContentOffsetX'] ?? 0 ) ) );
+            $mobile_content_y = min( 120, max( -120, intval( $attributes['mobileContentOffsetY'] ?? 0 ) ) );
+            $mobile_feature_x = min( 100, max( -100, intval( $attributes['mobileFeatureOffsetX'] ?? 0 ) ) );
+            $mobile_feature_y = min( 100, max( -100, intval( $attributes['mobileFeatureOffsetY'] ?? 0 ) ) );
+            $mobile_jacket_x = min( 140, max( -140, intval( $attributes['mobileJacketOffsetX'] ?? 0 ) ) );
+            $mobile_jacket_y = min( 140, max( -140, intval( $attributes['mobileJacketOffsetY'] ?? 0 ) ) );
+        }
+
+        $hero_style .= '--asevj-mobile-title-size:' . $mobile_title . ';';
+        $hero_style .= '--asevj-mobile-kicker-size:' . $mobile_kicker . ';';
+        $hero_style .= '--asevj-mobile-body-size:' . $mobile_body . ';';
+        $hero_style .= '--asevj-mobile-pad-x:' . $mobile_pad_x . ';';
+        $hero_style .= '--asevj-mobile-pad-y:' . $mobile_pad_y . ';';
+        $hero_style .= '--asevj-mobile-feature-scale:' . $mobile_feature_scale . ';';
+        $hero_style .= '--asevj-mobile-jacket-scale:' . $mobile_jacket_scale . ';';
+        $hero_style .= '--asevj-mobile-visual-height:' . ( ! empty( $attributes['mobileVisualHeight'] ) ? min( 520, max( 200, absint( $attributes['mobileVisualHeight'] ) ) ) . 'px' : 'clamp(260px,82vw,360px)' ) . ';';
+        $hero_style .= '--asevj-mobile-content-x:' . $mobile_content_x . 'px;';
+        $hero_style .= '--asevj-mobile-content-y:' . $mobile_content_y . 'px;';
+        $hero_style .= '--asevj-mobile-feature-x:' . $mobile_feature_x . 'px;';
+        $hero_style .= '--asevj-mobile-feature-y:' . $mobile_feature_y . 'px;';
+        $hero_style .= '--asevj-mobile-jacket-x:' . $mobile_jacket_x . 'px;';
+        $hero_style .= '--asevj-mobile-jacket-y:' . $mobile_jacket_y . 'px;';
         $show_features = ! array_key_exists( 'showFeatures', $attributes ) || ! empty( $attributes['showFeatures'] );
         ob_start();
         ?>
@@ -373,7 +505,14 @@ final class ASEVJ_Render {
         $mascots = array_values( array_unique( array_filter( array_column( $schools, 'mascot' ) ) ) );
         sort( $districts );
         sort( $mascots );
-        $first = $schools[0];
+        $default_index = 0;
+        foreach ( $schools as $school_index => $school_data ) {
+            if ( 0 === strcasecmp( trim( (string) $school_data['name'] ), 'Newark' ) ) {
+                $default_index = (int) $school_index;
+                break;
+            }
+        }
+        $first = $schools[ $default_index ];
         $show_prices = self::tri_state( $attributes, 'showPrices', ! empty( $s['show_prices'] ) );
         $show_search = self::tri_state( $attributes, 'showSearch', ! empty( $s['show_search'] ) );
         $show_filters = self::tri_state( $attributes, 'showFilters', ! empty( $s['show_filters'] ) );
@@ -405,10 +544,9 @@ final class ASEVJ_Render {
                 <div class="asevj-school-strip-wrap">
                     <button class="asevj-strip-arrow asevj-strip-arrow--prev" type="button" data-asevj-prev aria-label="Previous schools"><span aria-hidden="true">‹</span></button>
                     <div class="asevj-school-strip-shell">
-                        <div class="asevj-school-scroll-hint" aria-hidden="true"><span>‹</span><small>Slide to find your school</small><span>›</span></div>
                         <div class="asevj-school-strip" data-asevj-school-strip>
                         <?php foreach ( $schools as $i => $school ) : ?>
-                            <button type="button" class="asevj-school-tile<?php echo 0 === $i ? ' is-active' : ''; ?>" style="--school-primary:<?php echo esc_attr( $school['primary'] ); ?>;--school-secondary:<?php echo esc_attr( $school['secondary'] ); ?>;" data-school-index="<?php echo esc_attr( $i ); ?>" data-name="<?php echo esc_attr( strtolower( $school['name'] ) ); ?>" data-district="<?php echo esc_attr( $school['district'] ); ?>" data-mascot="<?php echo esc_attr( $school['mascot'] ); ?>">
+                            <button type="button" class="asevj-school-tile<?php echo $default_index === $i ? ' is-active' : ''; ?>" style="--school-primary:<?php echo esc_attr( $school['primary'] ); ?>;--school-secondary:<?php echo esc_attr( $school['secondary'] ); ?>;" data-school-index="<?php echo esc_attr( $i ); ?>" data-name="<?php echo esc_attr( strtolower( $school['name'] ) ); ?>" data-district="<?php echo esc_attr( $school['district'] ); ?>" data-mascot="<?php echo esc_attr( $school['mascot'] ); ?>">
                                 <?php echo self::render_logo_markup( $school ); ?>
                                 <small><?php echo esc_html( $school['name'] ); ?></small>
                             </button>
@@ -416,26 +554,54 @@ final class ASEVJ_Render {
                         </div>
                     </div>
                     <button class="asevj-strip-arrow asevj-strip-arrow--next" type="button" data-asevj-next aria-label="Next schools"><span aria-hidden="true">›</span></button>
+                    <div class="asevj-school-scroll-hint" aria-hidden="true"><span>‹</span><small>Slide to find your school</small><span>›</span></div>
                 </div>
 
                 <div class="asevj-school-stage">
                     <aside class="asevj-school-summary" style="--school-primary:<?php echo esc_attr( $first['primary'] ); ?>;--school-secondary:<?php echo esc_attr( $first['secondary'] ); ?>;">
                         <div class="asevj-school-summary__title"><span data-asevj-active-logo><?php echo self::render_logo_markup( $first ); ?></span><h3 data-asevj-school-name><?php echo esc_html( $first['name'] ); ?></h3></div>
                         <div class="asevj-school-summary__meta"><span data-asevj-mascot-text><?php echo esc_html( $first['mascot'] ?: 'School' ); ?></span><span data-asevj-location><?php echo esc_html( $first['location'] ); ?></span></div>
-                        <p data-asevj-description><?php echo esc_html( $first['description'] ?: 'Explore the available varsity jacket styles for this school.' ); ?></p>
-                        <button type="button" class="asevj-school-gallery-btn" data-asevj-school-gallery>VIEW SCHOOL GALLERY <span>↗</span></button>
+                        <div class="asevj-style-picker-heading"><strong>CHOOSE A JACKET STYLE</strong><small>Select a style to update the gallery.</small></div>
+                        <div class="asevj-style-picker" data-asevj-style-picker><?php echo self::render_style_selector_markup( $first['styles'] ); ?></div>
                     </aside>
 
-                    <div class="asevj-style-area">
-                        <div class="asevj-style-grid" data-asevj-style-grid>
-                            <?php foreach ( $first['styles'] as $style_index => $style ) : echo self::render_style_card_markup( $first, $style, $show_prices, $style_index ); endforeach; ?>
+                    <section class="asevj-style-showcase" data-asevj-style-showcase>
+                        <header class="asevj-style-showcase__header">
+                            <div>
+                                <span data-asevj-selected-number>STYLE <?php echo esc_html( $first['styles'][0]['number'] ); ?></span>
+                                <h4 data-asevj-selected-name><?php echo esc_html( $first['styles'][0]['name'] ); ?></h4>
+                                <small data-asevj-selected-subtitle><?php echo esc_html( $first['styles'][0]['subtitle'] ); ?></small>
+                            </div>
+                            <button type="button" class="asevj-full-gallery-btn" data-asevj-full-gallery>VIEW FULL GALLERY <span>↗</span></button>
+                        </header>
+                        <div data-asevj-selected-gallery><?php echo self::render_selected_gallery_markup( $first['styles'][0] ); ?></div>
+                        <footer class="asevj-style-showcase__footer">
+                            <div class="asevj-selected-features" data-asevj-selected-features>
+                                <?php foreach ( array_slice( $first['styles'][0]['features'], 0, 4 ) as $feature ) : ?><span>✓ <?php echo esc_html( $feature ); ?></span><?php endforeach; ?>
+                            </div>
+                            <div class="asevj-selected-actions">
+                                <div class="asevj-selected-price" data-asevj-selected-price<?php echo ( $show_prices && ! empty( $first['styles'][0]['priceHtml'] ) ) ? '' : ' hidden'; ?>><?php if ( $show_prices && ! empty( $first['styles'][0]['priceHtml'] ) ) : ?><small>STARTING AT</small><strong><?php echo wp_kses_post( $first['styles'][0]['priceHtml'] ); ?></strong><?php endif; ?></div>
+                                <button type="button" class="asevj-selected-detail-btn" data-asevj-selected-detail>VIEW JACKET DETAILS <span>→</span></button>
+                                <a class="asevj-selected-customize-btn" data-asevj-selected-customize href="<?php echo esc_url( $first['styles'][0]['url'] ?: '#' ); ?>"<?php echo empty( $first['styles'][0]['url'] ) ? ' hidden' : ''; ?>>CUSTOMIZE JACKET <span>↗</span></a>
+                            </div>
+                        </footer>
+                    </section>
+
+                    <aside class="asevj-customizations" aria-label="Available customizations">
+                        <div class="asevj-customizations__heading"><span>AVAILABLE</span><strong>CUSTOMIZATIONS</strong></div>
+                        <div class="asevj-customization-list">
+                            <div><b>A</b><p><strong>Chenille Letters</strong><small>Classic 3D chenille letters in school colors.</small></p></div>
+                            <div><b>T</b><p><strong>Tackle Twill</strong><small>One-color or multi-color twill designs.</small></p></div>
+                            <div><b>✦</b><p><strong>Embroidery</strong><small>Names, mascots, and custom embroidery.</small></p></div>
+                            <div><b>◇</b><p><strong>Patches</strong><small>School, achievement, and custom patches.</small></p></div>
+                            <div><b>23</b><p><strong>Names &amp; Numerals</strong><small>Graduation year, jersey numbers, and personalization.</small></p></div>
                         </div>
-                    </div>
+                    </aside>
                 </div>
 
                 <div class="asevj-no-results" data-asevj-no-results hidden>No schools match those filters.</div>
                 <?php if ( $editor_demo ) : ?><div class="asevj-editor-demo-note">Editor preview — import your schools to replace this sample data.</div><?php endif; ?>
-                <script type="application/json" class="asevj-data"><?php echo wp_json_encode( [ 'schools' => $schools, 'showPrices' => $show_prices ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ); ?></script>
+                <script type="application/json" class="asevj-data"><?php echo wp_json_encode( [ 'schools' => $schools, 'showPrices' => $show_prices, 'defaultIndex' => $default_index ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ); ?></script>
             </div>
         </section>
         <?php

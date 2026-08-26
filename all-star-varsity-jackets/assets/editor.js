@@ -54,6 +54,34 @@
             layout.push(el(RangeControl, { key: 'featureOffsetY', label: __('Feature row — up / down', 'all-star-varsity-jackets'), value: attrs.featureOffsetY || 0, min: -180, max: 180, step: 5, onChange: function (value) { update(props, 'featureOffsetY', value || 0); } }));
             layout.push(el(RangeControl, { key: 'jacketOffsetX', label: __('Jacket — left / right', 'all-star-varsity-jackets'), value: attrs.jacketOffsetX || 0, min: -360, max: 360, step: 5, onChange: function (value) { update(props, 'jacketOffsetX', value || 0); } }));
             layout.push(el(RangeControl, { key: 'jacketOffsetY', label: __('Jacket — up / down', 'all-star-varsity-jackets'), value: attrs.jacketOffsetY || 0, min: -260, max: 260, step: 5, onChange: function (value) { update(props, 'jacketOffsetY', value || 0); } }));
+
+            if (Object.prototype.hasOwnProperty.call(attrs, 'mobileTitleSize')) {
+                layout.push(el('hr', { key: 'mobileHeroDivider', className: 'asevj-editor-divider' }));
+                layout.push(el('strong', { key: 'mobileHeroTitle', className: 'asevj-editor-section-title' }, __('Mobile hero layout', 'all-star-varsity-jackets')));
+                layout.push(el('p', { key: 'mobileHeroHelp', className: 'asevj-editor-help' }, __('These settings only affect screens 760px wide and smaller. 0 keeps the polished mobile default.', 'all-star-varsity-jackets')));
+                layout.push(el(ToggleControl, {
+                    key: 'mobileUseMainControls',
+                    label: __('Use main Hero controls on mobile', 'all-star-varsity-jackets'),
+                    help: attrs.mobileUseMainControls
+                        ? __('ON: the normal Hero title, padding, scale, and position controls above drive this block on mobile. Ideal for a separate mobile-only copy.', 'all-star-varsity-jackets')
+                        : __('OFF: mobile keeps its own independent controls below so one Hero block can stay responsive across devices.', 'all-star-varsity-jackets'),
+                    checked: !!attrs.mobileUseMainControls,
+                    onChange: function (value) { update(props, 'mobileUseMainControls', !!value); }
+                }));
+                layout.push(el(RangeControl, { key: 'mobileTitleSize', label: __('Mobile title size', 'all-star-varsity-jackets'), value: attrs.mobileTitleSize || 0, min: 0, max: 64, step: 2, onChange: function (value) { update(props, 'mobileTitleSize', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileContentPaddingX', label: __('Mobile horizontal padding', 'all-star-varsity-jackets'), value: attrs.mobileContentPaddingX || 0, min: 0, max: 72, step: 2, onChange: function (value) { update(props, 'mobileContentPaddingX', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileContentPaddingY', label: __('Mobile vertical padding', 'all-star-varsity-jackets'), value: attrs.mobileContentPaddingY || 0, min: 0, max: 100, step: 2, onChange: function (value) { update(props, 'mobileContentPaddingY', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileVisualHeight', label: __('Mobile jacket area height', 'all-star-varsity-jackets'), value: attrs.mobileVisualHeight || 0, min: 0, max: 520, step: 10, onChange: function (value) { update(props, 'mobileVisualHeight', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileFeatureScale', label: __('Mobile feature scale', 'all-star-varsity-jackets'), value: attrs.mobileFeatureScale || 0, min: 0, max: 130, step: 5, onChange: function (value) { update(props, 'mobileFeatureScale', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileJacketScale', label: __('Mobile jacket scale', 'all-star-varsity-jackets'), value: attrs.mobileJacketScale || 0, min: 0, max: 135, step: 5, onChange: function (value) { update(props, 'mobileJacketScale', value || 0); } }));
+                layout.push(el('strong', { key: 'mobileTransformTitle', className: 'asevj-editor-section-title asevj-editor-section-title--sub' }, __('Mobile positions', 'all-star-varsity-jackets')));
+                layout.push(el(RangeControl, { key: 'mobileContentOffsetX', label: __('Mobile text — left / right', 'all-star-varsity-jackets'), value: attrs.mobileContentOffsetX || 0, min: -120, max: 120, step: 5, onChange: function (value) { update(props, 'mobileContentOffsetX', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileContentOffsetY', label: __('Mobile text — up / down', 'all-star-varsity-jackets'), value: attrs.mobileContentOffsetY || 0, min: -120, max: 120, step: 5, onChange: function (value) { update(props, 'mobileContentOffsetY', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileFeatureOffsetX', label: __('Mobile features — left / right', 'all-star-varsity-jackets'), value: attrs.mobileFeatureOffsetX || 0, min: -100, max: 100, step: 5, onChange: function (value) { update(props, 'mobileFeatureOffsetX', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileFeatureOffsetY', label: __('Mobile features — up / down', 'all-star-varsity-jackets'), value: attrs.mobileFeatureOffsetY || 0, min: -100, max: 100, step: 5, onChange: function (value) { update(props, 'mobileFeatureOffsetY', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileJacketOffsetX', label: __('Mobile jacket — left / right', 'all-star-varsity-jackets'), value: attrs.mobileJacketOffsetX || 0, min: -140, max: 140, step: 5, onChange: function (value) { update(props, 'mobileJacketOffsetX', value || 0); } }));
+                layout.push(el(RangeControl, { key: 'mobileJacketOffsetY', label: __('Mobile jacket — up / down', 'all-star-varsity-jackets'), value: attrs.mobileJacketOffsetY || 0, min: -140, max: 140, step: 5, onChange: function (value) { update(props, 'mobileJacketOffsetY', value || 0); } }));
+            }
         }
 
         function triControl(key, label) {
@@ -212,6 +240,19 @@
         jacketOffsetY: { type: 'number', default: 0 },
         glowOffsetX: { type: 'number', default: 0 },
         glowOffsetY: { type: 'number', default: 0 },
+        mobileUseMainControls: { type: 'boolean', default: false },
+        mobileTitleSize: { type: 'number', default: 0 },
+        mobileContentPaddingX: { type: 'number', default: 0 },
+        mobileContentPaddingY: { type: 'number', default: 0 },
+        mobileFeatureScale: { type: 'number', default: 0 },
+        mobileJacketScale: { type: 'number', default: 0 },
+        mobileVisualHeight: { type: 'number', default: 0 },
+        mobileContentOffsetX: { type: 'number', default: 0 },
+        mobileContentOffsetY: { type: 'number', default: 0 },
+        mobileFeatureOffsetX: { type: 'number', default: 0 },
+        mobileFeatureOffsetY: { type: 'number', default: 0 },
+        mobileJacketOffsetX: { type: 'number', default: 0 },
+        mobileJacketOffsetY: { type: 'number', default: 0 },
         backgroundColor: { type: 'string', default: '' },
         fullBleed: { type: 'boolean', default: true },
         topFadeColor: { type: 'string', default: '#101B31' },

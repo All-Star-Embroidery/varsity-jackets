@@ -2,7 +2,7 @@
 
 All Star Embroidery's modular WordPress/WooCommerce varsity-jacket manager.
 
-**Current build:** `0.2.0-beta.9.1`
+**Current build:** `1.0.1`
 
 ## Permanent plugin identity
 
@@ -45,10 +45,22 @@ Image mapping is deterministic:
 
 Legacy downloader ZIPs with `image-manifest.csv` are still accepted as a fallback.
 
-## GitHub → WordPress release architecture
+## GitHub → WordPress update architecture
 
-Source lives in `all-star-varsity-jackets/`. GitHub Actions builds a purpose-made WordPress ZIP containing exactly one root folder named `all-star-varsity-jackets/`, validates it, publishes a versioned GitHub Release, uploads the ZIP as a Release asset, verifies the asset, and only then updates `latest.json`.
+Source lives in `all-star-varsity-jackets/`. WordPress reads the public `latest.json` manifest using `wp_remote_get()` with SSL verification, caches it for 1,800 seconds, and injects updates through the native plugin updater. Automatic installation is enabled for this plugin.
 
-WordPress reads the organization-owned `latest.json` using `wp_remote_get()` with SSL verification, caches it for 1,800 seconds, and injects updates through the native plugin updater. Automatic installation is enabled for this plugin.
+The primary v1 transport stores the purpose-made WordPress ZIP as normal base64 text chunks under `packages/<version>/`. WordPress reconstructs the ZIP locally and verifies the SHA-256 checksum before installation. This means publishing an update does not depend on GitHub Actions.
 
-Repository/raw/source archive ZIPs are not used as WordPress packages.
+A genuine versioned GitHub Release `.zip` remains supported as a fallback package transport.
+
+
+## WooCommerce bulk product setup
+
+Version 1.0.1 adds a bulk style-to-product workflow under **All Star Jackets → WooCommerce**.
+
+- Default varsity jacket base price: **$400**
+- Optional per-style Base Price Override
+- Create all missing WooCommerce products in one action
+- Synchronize all linked products in one action
+- Automatic product image/gallery/category/SKU/style relationship setup
+- New products can default to Draft for review or Published

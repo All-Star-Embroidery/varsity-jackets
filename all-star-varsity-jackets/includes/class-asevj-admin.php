@@ -26,7 +26,7 @@ final class ASEVJ_Admin {
         add_action( 'manage_asevj_school_posts_custom_column', [ $this, 'school_column_content' ], 10, 2 );
         add_filter( 'manage_asevj_style_posts_columns', [ $this, 'style_columns' ] );
         add_action( 'manage_asevj_style_posts_custom_column', [ $this, 'style_column_content' ], 10, 2 );
-        add_action( 'admin_notices', [ $this, 'beta_notice' ] );
+        add_filter( 'redirect_post_location', [ $this, 'keep_data_editor_redirect' ], 99, 2 );
     }
 
     public static function default_design_settings(): array {
@@ -99,8 +99,9 @@ final class ASEVJ_Admin {
         wp_enqueue_script( 'asevj-admin', ASEVJ_URL . 'assets/admin.js', [ 'jquery', 'wp-color-picker', 'jquery-ui-sortable' ], ASEVJ_VERSION, true );
 
         wp_localize_script( 'asevj-admin', 'ASEVJ_ADMIN', [
-            'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-            'nonce'   => wp_create_nonce( 'asevj_admin' ),
+            'ajaxUrl'      => admin_url( 'admin-ajax.php' ),
+            'adminPostUrl' => admin_url( 'admin-post.php' ),
+            'nonce'        => wp_create_nonce( 'asevj_admin' ),
         ] );
 
         if ( class_exists( 'WooCommerce' ) ) {
@@ -148,6 +149,7 @@ final class ASEVJ_Admin {
         echo '<div class="asevj-intro"><strong>Start here.</strong> Add the basic school information visitors should see before choosing a jacket style.</div>';
         echo '<label class="asevj-toggle-row"><input type="checkbox" name="asevj_enabled" value="1" ' . checked( $enabled, 1, false ) . '> <span><strong>Show this school on the website</strong><small>Turn this off to prepare a school without publishing it in the browser.</small></span></label>';
         echo '<div class="asevj-grid asevj-grid-2">';
+        $this->field( 'School Name', 'asevj_school_name', $post->post_title, 'This is the school name shown throughout the Varsity Jackets experience.' );
         $this->field( 'Mascot', 'asevj_mascot', $mascot, 'Example: Wildcats, Warriors, Ceramics.' );
         $this->field( 'Location', 'asevj_location', $location, 'Example: Newark, Ohio.' );
         $this->field( 'District / Group', 'asevj_district', $district, 'Optional. Useful for the Browse by School filter.' );
@@ -216,9 +218,7 @@ final class ASEVJ_Admin {
             echo '<div class="asevj-style-main"><strong>Style ' . esc_html( $index + 1 ) . ' — ' . esc_html( get_the_title( $style ) ) . '</strong><small>' . ( $enabled ? 'Visible on frontend' : 'Hidden on frontend' ) . '</small></div>';
             echo '<div class="asevj-style-status">' . ( $woo_id ? '<span class="asevj-badge is-green">Woo linked</span>' : '<span class="asevj-badge">Showcase only</span>' ) . '</div>';
             echo '<a class="button" href="' . esc_url( get_edit_post_link( $style->ID ) ) . '">Edit Style</a>';
-            echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="asevj-inline-form">';
-            wp_nonce_field( 'asevj_duplicate_style_' . $style->ID );
-            echo '<input type="hidden" name="action" value="asevj_duplicate_style"><input type="hidden" name="style_id" value="' . esc_attr( $style->ID ) . '"><button class="button-link">Duplicate</button></form>';
+            echo '<button type="button" class="button-link asevj-post-action" data-action="asevj_duplicate_style" data-field="style_id" data-id="' . esc_attr( $style->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'asevj_duplicate_style_' . $style->ID ) ) . '">Duplicate</button>';
             echo '</div>';
         }
         echo '</div><p class="description asevj-sort-status">Drag a row and drop it where you want it. The order saves automatically.</p>';
@@ -231,9 +231,7 @@ final class ASEVJ_Admin {
         if ( 'auto-draft' !== $post->post_status ) {
             $organize_url = add_query_arg( [ 'page' => 'asevj-organizer', 'school_id' => $post->ID ], admin_url( 'admin.php' ) );
             echo '<p><a class="button button-primary" href="' . esc_url( $organize_url ) . '">Open Style Organizer</a></p>';
-            echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-            wp_nonce_field( 'asevj_duplicate_school_' . $post->ID );
-            echo '<input type="hidden" name="action" value="asevj_duplicate_school"><input type="hidden" name="school_id" value="' . esc_attr( $post->ID ) . '"><button class="button">Duplicate School + Styles</button></form>';
+            echo '<button type="button" class="button asevj-post-action" data-action="asevj_duplicate_school" data-field="school_id" data-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'asevj_duplicate_school_' . $post->ID ) ) . '">Duplicate School + Styles</button>';
         }
         echo '</div>';
     }
@@ -256,13 +254,15 @@ final class ASEVJ_Admin {
         echo '<div class="asevj-intro"><strong>One style = one jacket choice.</strong> Give it a clear name, image, description, and optional WooCommerce product.</div>';
         echo '<label class="asevj-toggle-row"><input type="checkbox" name="asevj_style_enabled" value="1" ' . checked( $enabled, 1, false ) . '> <span><strong>Show this style on the website</strong><small>Hide unfinished styles without deleting them.</small></span></label>';
         echo '<div class="asevj-grid asevj-grid-2">';
+        $this->field( 'Style Name', 'asevj_style_name', $post->post_title, 'This replaces generic imported names such as “Imported Jacket Gallery”.' );
         echo '<div class="asevj-field"><label><strong>School</strong></label><select name="asevj_school_id" required><option value="">Select a school…</option>';
         foreach ( $schools as $school ) {
             echo '<option value="' . esc_attr( $school->ID ) . '" ' . selected( $school_id, $school->ID, false ) . '>' . esc_html( get_the_title( $school ) ) . '</option>';
         }
         echo '</select><p class="description">This determines which school displays this style.</p></div>';
         $this->field( 'Style Subtitle', 'asevj_subtitle', $subtitle, 'Optional. Example: Classic wool body / leather sleeves.' );
-        $this->field( 'Fallback Starting Price', 'asevj_fallback_price', $fallback, 'Used only if no WooCommerce price is linked.', 'number' );
+        $default_base = ASEVJ_Tools::woo_settings()['default_base_price'] ?? '400';
+        $this->field( 'Base Price Override', 'asevj_fallback_price', $fallback, 'Optional. Leave blank to use the global varsity jacket base price of $' . $default_base . '. This price is pushed to the linked WooCommerce product.', 'number' );
         $this->field( 'Button Label', 'asevj_cta', $cta, 'Example: Customize This Jacket.' );
         echo '</div>';
         $this->field( 'Short Description', 'asevj_style_description', $description, 'Two short sentences works best on a style card.', 'textarea' );
@@ -314,16 +314,12 @@ final class ASEVJ_Admin {
             $product = wc_get_product( $product_id );
             if ( $product ) {
                 echo '<div class="asevj-woo-summary"><span class="asevj-badge is-green">Linked Product</span><strong>' . esc_html( $product->get_name() ) . '</strong><span>' . wp_kses_post( $product->get_price_html() ) . '</span><a class="button" href="' . esc_url( get_edit_post_link( $product_id ) ) . '">Edit Woo Product</a></div>';
-                echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="asevj-woo-box-action">';
-                wp_nonce_field( 'asevj_sync_woo_' . $post->ID );
-                echo '<input type="hidden" name="action" value="asevj_sync_woo_product"><input type="hidden" name="style_id" value="' . esc_attr( $post->ID ) . '"><button class="button">Sync Style → Woo</button></form>';
+                echo '<button type="button" class="button asevj-post-action" data-action="asevj_sync_woo_product" data-field="style_id" data-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'asevj_sync_woo_' . $post->ID ) ) . '">Sync Style → Woo</button>';
             }
         } else {
             echo '<div class="asevj-callout"><strong>Showcase-only is okay.</strong> You do not need a WooCommerce product for every style.</div>';
             if ( 'auto-draft' !== $post->post_status ) {
-                echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="asevj-woo-box-action">';
-                wp_nonce_field( 'asevj_create_woo_' . $post->ID );
-                echo '<input type="hidden" name="action" value="asevj_create_woo_product"><input type="hidden" name="style_id" value="' . esc_attr( $post->ID ) . '"><button class="button button-primary">Create Draft Woo Product</button></form>';
+                echo '<button type="button" class="button button-primary asevj-post-action" data-action="asevj_create_woo_product" data-field="style_id" data-id="' . esc_attr( $post->ID ) . '" data-nonce="' . esc_attr( wp_create_nonce( 'asevj_create_woo_' . $post->ID ) ) . '">Create Draft Woo Product</button>';
             }
         }
     }
@@ -341,6 +337,15 @@ final class ASEVJ_Admin {
         }
         if ( ! current_user_can( 'edit_post', $post_id ) ) {
             return;
+        }
+
+        if ( isset( $_POST['asevj_school_name'] ) ) {
+            $school_name = sanitize_text_field( wp_unslash( $_POST['asevj_school_name'] ) );
+            if ( '' !== $school_name && $school_name !== get_the_title( $post_id ) ) {
+                remove_action( 'save_post_asevj_school', [ $this, 'save_school' ] );
+                wp_update_post( [ 'ID' => $post_id, 'post_title' => $school_name ] );
+                add_action( 'save_post_asevj_school', [ $this, 'save_school' ] );
+            }
         }
 
         $map = [
@@ -369,6 +374,15 @@ final class ASEVJ_Admin {
         }
         if ( ! current_user_can( 'edit_post', $post_id ) ) {
             return;
+        }
+
+        if ( isset( $_POST['asevj_style_name'] ) ) {
+            $style_name = sanitize_text_field( wp_unslash( $_POST['asevj_style_name'] ) );
+            if ( '' !== $style_name && $style_name !== get_the_title( $post_id ) ) {
+                remove_action( 'save_post_asevj_style', [ $this, 'save_style' ] );
+                wp_update_post( [ 'ID' => $post_id, 'post_title' => $style_name ] );
+                add_action( 'save_post_asevj_style', [ $this, 'save_style' ] );
+            }
         }
 
         $gallery_ids = [];
@@ -404,6 +418,25 @@ final class ASEVJ_Admin {
                 delete_post_thumbnail( $post_id );
             }
         }
+    }
+
+    public function keep_data_editor_redirect( string $location, int $post_id ): string {
+        $post_type = get_post_type( $post_id );
+        if ( ! in_array( $post_type, [ 'asevj_school', 'asevj_style' ], true ) ) {
+            return $location;
+        }
+
+        // WordPress should normally return to post.php after an update. Force
+        // the data editor URL if another admin hook/theme/plugin tries to send
+        // these custom post types to the normal Blog Posts screen instead.
+        if ( false === strpos( $location, 'post.php' ) ) {
+            return add_query_arg( [
+                'post'    => $post_id,
+                'action'  => 'edit',
+                'message' => 1,
+            ], admin_url( 'post.php' ) );
+        }
+        return $location;
     }
 
     public function ajax_reorder_styles(): void {
@@ -443,9 +476,9 @@ final class ASEVJ_Admin {
         register_setting( 'asevj_update_group', 'asevj_update_channel', [
             'type' => 'string',
             'sanitize_callback' => static function ( $value ) {
-                return in_array( $value, [ 'beta', 'stable' ], true ) ? $value : 'beta';
+                return in_array( $value, [ 'beta', 'stable' ], true ) ? $value : 'stable';
             },
-            'default' => 'beta',
+            'default' => 'stable',
         ] );
     }
 
@@ -494,13 +527,13 @@ final class ASEVJ_Admin {
         $style_count  = (int) ( $styles->publish ?? 0 ) + (int) ( $styles->draft ?? 0 ) + (int) ( $styles->private ?? 0 );
 
         $this->admin_header( 'All Star Varsity Jackets', 'Build school-based jacket collections that can optionally connect to WooCommerce.' );
-        echo '<div class="asevj-beta-banner"><strong>Beta release</strong><span>This beta is feature-complete enough to build the real page: migration, visual organization, live blocks, Woo product tools, backups, and GitHub updating are all included.</span></div>';
+        echo '<div class="asevj-beta-banner"><strong>Version 1.0</strong><span>Production release: school/style management, structured imports, live storefront blocks, WooCommerce tools, backups, and GitHub updating are ready for the live Varsity Jackets page.</span></div>';
         echo '<div class="asevj-stats"><div><strong>' . esc_html( $school_count ) . '</strong><span>Schools</span></div><div><strong>' . esc_html( $style_count ) . '</strong><span>Jacket Styles</span></div><div><strong>' . ( class_exists( 'WooCommerce' ) ? 'Connected' : 'Optional' ) . '</strong><span>WooCommerce</span></div></div>';
         echo '<div class="asevj-dashboard-grid">';
         echo '<section class="asevj-admin-card"><h2>Recommended workflow</h2><div class="asevj-steps"><div><b>1</b><span><strong>Import the old gallery</strong><small>School folders and jacket images come in automatically.</small></span></div><div><b>2</b><span><strong>Organize jacket styles</strong><small>Drag photos into Style 1, Style 2, Style 3…</small></span></div><div><b>3</b><span><strong>Link WooCommerce if needed</strong><small>Showcase-only styles are allowed too.</small></span></div><div><b>4</b><span><strong>Build the page visually</strong><small>The Gutenberg block renders the real frontend design while you edit.</small></span></div></div><div class="asevj-dashboard-actions"><a class="button button-primary button-hero" href="' . esc_url( admin_url( 'admin.php?page=asevj-import' ) ) . '">Import Old Gallery ZIP</a> <a class="button button-hero" href="' . esc_url( admin_url( 'admin.php?page=asevj-organizer' ) ) . '">Style Organizer</a> <form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="asevj-inline-form">';
         wp_nonce_field( 'asevj_create_page' );
         echo '<input type="hidden" name="action" value="asevj_create_page"><button class="button button-hero">Create / Open Varsity Page</button></form></div></section>';
-        echo '<section class="asevj-admin-card"><h2>What this beta includes</h2><ul class="asevj-check-list"><li>Multiple styles per school</li><li>Drag-and-drop style ordering</li><li>Optional WooCommerce product link per style</li><li>Rebuilt storefront styling based on the approved mockup</li><li>School search + district/mascot filtering</li><li>Hero, Browser, Benefits, and Full Experience Gutenberg blocks with live editor previews</li><li>Global design controls with All Star navy / gold defaults</li><li>Legacy ZIP school + image importer</li><li>Visual drag-and-drop photo organizer for splitting imported galleries into styles</li><li>Draft WooCommerce product creation and style-to-product sync</li><li>JSON backup / restore</li><li>GitHub Releases updater + release workflow</li></ul><p><strong>Beta means we can still change the workflow freely.</strong> It no longer means the major pieces are missing.</p></section>';
+        echo '<section class="asevj-admin-card"><h2>Version 1.0 includes</h2><ul class="asevj-check-list"><li>Multiple styles per school with drag-and-drop ordering</li><li>Gallery-first Browse by School experience</li><li>School search + district/mascot filtering</li><li>Dedicated responsive desktop, tablet, and mobile hero controls</li><li>Hero, Browser, Benefits, and Full Experience Gutenberg blocks with live editor previews</li><li>Structured CSV + ZIP school/style/image importer</li><li>School logos, mascot artwork, school details, style features, and galleries</li><li>Optional WooCommerce product linking and product tools</li><li>JSON backup / restore</li><li>GitHub-powered WordPress updating with checksum verification</li></ul><p><strong>Ready for production.</strong> Future releases can focus on incremental improvements instead of workflow changes.</p></section>';
         echo '</div>';
         $ordered_schools = get_posts( [ 'post_type' => 'asevj_school', 'post_status' => [ 'publish', 'draft', 'private' ], 'posts_per_page' => -1, 'orderby' => [ 'menu_order' => 'ASC', 'title' => 'ASC' ] ] );
         if ( $ordered_schools ) {
@@ -547,7 +580,7 @@ final class ASEVJ_Admin {
     }
 
     public function render_woocommerce(): void {
-        $this->admin_header( 'WooCommerce', 'Keep a style as a showcase, link an existing WooCommerce product, or safely generate a draft product from it.' );
+        $this->admin_header( 'WooCommerce', 'Create and keep WooCommerce products synchronized with every varsity jacket style from one screen.' );
         ASEVJ_Tools::render_woo_manager();
         $this->admin_footer();
     }
@@ -567,7 +600,7 @@ final class ASEVJ_Admin {
     }
 
     public function render_tools(): void {
-        $this->admin_header( 'Tools & Updates', 'GitHub release updates, beta status, and maintenance information.' );
+        $this->admin_header( 'Tools & Updates', 'GitHub-powered updates, version status, and maintenance information.' );
         ASEVJ_Tools::render_update_manager();
         $this->admin_footer();
     }
@@ -577,7 +610,7 @@ final class ASEVJ_Admin {
         if ( ! $screen || ! in_array( $screen->post_type, [ 'asevj_school', 'asevj_style' ], true ) ) {
             return;
         }
-        echo '<div class="notice notice-info asevj-native-notice"><p><strong>All Star Varsity Jackets ' . esc_html( ASEVJ_VERSION ) . '</strong> — Beta workflow: School → one or more Styles → optional WooCommerce product.</p></div>';
+        echo '<div class="notice notice-info asevj-native-notice"><p><strong>All Star Varsity Jackets ' . esc_html( ASEVJ_VERSION ) . '</strong> — Production workflow: School → one or more Styles → optional WooCommerce product.</p></div>';
     }
 
     public function school_columns( array $columns ): array {

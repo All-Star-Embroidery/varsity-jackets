@@ -36,7 +36,7 @@ The v1.0.3 release improves the responsive jacket-detail experience and purchase
 4. `.github/workflows/publish-plugin-release.yml` is **manual-only**. It does not run on pushes or schedules, conserving GitHub Actions minutes.
 5. Future releases should only run the workflow intentionally after the source/version/release notes are ready.
 
-The current v1.0.3 package was uploaded directly as a GitHub Release asset. The source tree on `main` should be synchronized from the authoritative v1.0.3 package before the next code release; do not promote stale beta source as though it were v1.0.3.
+The `main` source tree is synchronized to the authoritative v1.0.3 production package. Future releases should always begin from the current v1.x source in this organization repository.
 
 ## Organization migration
 

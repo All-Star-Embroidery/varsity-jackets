@@ -9,3 +9,59 @@
 .asevj-dashboard-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:16px}.asevj-dashboard-actions form{margin:0}.asevj-inline-settings{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap}.asevj-inline-settings label{display:inline-flex;gap:7px;align-items:center}
 .asevj-gallery-item{cursor:grab}.asevj-gallery-sort-placeholder{width:100px;height:80px;border:2px dashed var(--asevj-admin-gold);border-radius:8px;background:#fff9e7}
 .asevj-school-order-card{margin-top:18px}.asevj-school-sorter{display:grid;gap:6px;margin-top:12px;max-width:900px}.asevj-school-order-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(120px,220px) auto;gap:10px;align-items:center;border:1px solid var(--asevj-admin-border);background:#fff;border-radius:8px;padding:9px 11px}.asevj-school-order-row .dashicons-menu{cursor:grab;color:#7a8596}.asevj-school-order-row small{color:var(--asevj-admin-muted)}
+
+.asevj-import-selected{min-height:20px;color:var(--asevj-admin-navy);font-weight:600}.asevj-import-selected span{color:var(--asevj-admin-muted);font-weight:400}.asevj-import-working{display:flex;align-items:center;gap:8px;color:var(--asevj-admin-navy);padding:10px 0}.asevj-import-working[hidden]{display:none}.asevj-import-working .spinner{float:none;margin:0}.asevj-import-working small{color:var(--asevj-admin-muted)}
+
+
+/* v1.0.1 — WooCommerce bulk product manager */
+.asevj-woo-bulk-grid{
+    align-items:start;
+}
+.asevj-price-input{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.asevj-price-input>span{
+    font-weight:800;
+    font-size:18px;
+    color:#101b31;
+}
+.asevj-price-input input{
+    flex:1;
+}
+.asevj-mini-stats{
+    margin:16px 0;
+}
+.asevj-bulk-actions{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:18px;
+}
+.asevj-bulk-actions form{
+    margin:0;
+}
+.asevj-price-source{
+    display:inline-flex;
+    align-items:baseline;
+    gap:6px;
+    color:#5b6475;
+    font-size:12px;
+}
+.asevj-price-source b{
+    color:#101b31;
+    font-size:14px;
+}
+@media (max-width:782px){
+    .asevj-bulk-actions,
+    .asevj-bulk-actions form,
+    .asevj-bulk-actions .button{
+        width:100%;
+    }
+    .asevj-bulk-actions .button{
+        text-align:center;
+        justify-content:center;
+    }
+}

@@ -139,7 +139,7 @@ final class ASEVJ_Updater {
         $allowed_prefixes = [
             '/All-Star-Embroidery/varsity-jackets/releases/download/',
             // Transitional compatibility for pre-migration manifests/redirects.
-            '/rolejarczyk/ASE.VarsityJackets/releases/download/',
+            '/All-Star-Embroidery/varsity-jackets/releases/download/',
         ];
 
         foreach ( $allowed_prefixes as $prefix ) {

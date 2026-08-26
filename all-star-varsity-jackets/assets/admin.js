@@ -207,6 +207,51 @@
         });
     }
 
+
+
+    function initDetachedPostActions() {
+        $(document).on('click', '.asevj-post-action', function (e) {
+            e.preventDefault();
+            var $button = $(this);
+            var action = String($button.data('action') || '');
+            var field = String($button.data('field') || '');
+            var id = String($button.data('id') || '');
+            var nonce = String($button.data('nonce') || '');
+            if (!action || !field || !id || !ASEVJ_ADMIN.adminPostUrl) return;
+
+            var $form = $('<form>', {
+                method: 'post',
+                action: ASEVJ_ADMIN.adminPostUrl,
+                style: 'display:none'
+            });
+            $('<input>', { type: 'hidden', name: 'action', value: action }).appendTo($form);
+            $('<input>', { type: 'hidden', name: field, value: id }).appendTo($form);
+            $('<input>', { type: 'hidden', name: '_wpnonce', value: nonce }).appendTo($form);
+            $form.appendTo(document.body).trigger('submit');
+        });
+    }
+
+    function initImportForm() {
+        var $form = $('.asevj-import-form');
+        if (!$form.length) return;
+        var $input = $form.find('input[type=file][name=asevj_legacy_zip]');
+        var $selected = $form.find('.asevj-import-selected');
+        var $working = $form.find('.asevj-import-working');
+        $input.on('change', function () {
+            var file = this.files && this.files[0] ? this.files[0] : null;
+            if (!file) {
+                $selected.empty();
+                return;
+            }
+            var mb = (file.size / 1024 / 1024).toFixed(1);
+            $selected.html('<strong>Ready:</strong> ' + $('<div>').text(file.name).html() + ' <span>(' + mb + ' MB)</span>');
+        });
+        $form.on('submit', function () {
+            $form.find('input[type=submit],button[type=submit]').prop('disabled', true).val('Uploading & importing…').text('Uploading & importing…');
+            $working.prop('hidden', false);
+        });
+    }
+
     $(function () {
         initColors();
         initMedia();
@@ -214,6 +259,8 @@
         initStyleSort();
         initSchoolSort();
         initOrganizer();
+        initImportForm();
+        initDetachedPostActions();
         if ($('.wc-product-search').length) {
             $(document.body).trigger('wc-enhanced-select-init');
         }

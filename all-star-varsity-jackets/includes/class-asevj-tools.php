@@ -18,6 +18,10 @@ final class ASEVJ_Tools {
         add_action( 'admin_post_asevj_import_data', [ $this, 'import_data' ] );
         add_action( 'admin_post_asevj_create_woo_product', [ $this, 'create_woo_product' ] );
         add_action( 'admin_post_asevj_sync_woo_product', [ $this, 'sync_woo_product' ] );
+        add_action( 'admin_post_asevj_save_woo_settings', [ $this, 'save_woo_settings' ] );
+        add_action( 'admin_post_asevj_bulk_create_woo_products', [ $this, 'bulk_create_woo_products' ] );
+        add_action( 'admin_post_asevj_bulk_sync_woo_products', [ $this, 'bulk_sync_woo_products' ] );
+        add_action( 'admin_post_asevj_bulk_create_sync_woo_products', [ $this, 'bulk_create_sync_woo_products' ] );
         add_action( 'admin_post_asevj_duplicate_style', [ $this, 'duplicate_style' ] );
         add_action( 'admin_post_asevj_duplicate_school', [ $this, 'duplicate_school' ] );
         add_action( 'admin_post_asevj_quick_add_style', [ $this, 'quick_add_style' ] );
@@ -268,6 +272,316 @@ final class ASEVJ_Tools {
         self::admin_redirect( 'asevj-import' );
     }
 
+
+    public static function woo_settings(): array {
+        $saved = get_option( 'asevj_woo_settings', [] );
+        if ( ! is_array( $saved ) ) {
+            $saved = [];
+        }
+
+        return wp_parse_args(
+            $saved,
+            [
+                'default_base_price' => '400',
+                'new_product_status' => 'draft',
+                'product_category'   => 'Varsity Jackets',
+                'sku_prefix'         => 'ASE-VJ',
+            ]
+        );
+    }
+
+    public static function style_base_price( int $style_id ): string {
+        $override = trim( (string) get_post_meta( $style_id, '_asevj_fallback_price', true ) );
+        if ( '' !== $override ) {
+            return function_exists( 'wc_format_decimal' ) ? wc_format_decimal( $override ) : $override;
+        }
+
+        $settings = self::woo_settings();
+        $price = (string) ( $settings['default_base_price'] ?? '400' );
+        return function_exists( 'wc_format_decimal' ) ? wc_format_decimal( $price ) : $price;
+    }
+
+    private static function ensure_product_category( string $name ): int {
+        $name = trim( $name );
+        if ( '' === $name || ! taxonomy_exists( 'product_cat' ) ) {
+            return 0;
+        }
+
+        $existing = term_exists( $name, 'product_cat' );
+        if ( is_array( $existing ) && ! empty( $existing['term_id'] ) ) {
+            return absint( $existing['term_id'] );
+        }
+        if ( is_int( $existing ) ) {
+            return $existing;
+        }
+
+        $created = wp_insert_term( $name, 'product_cat' );
+        return is_wp_error( $created ) ? 0 : absint( $created['term_id'] ?? 0 );
+    }
+
+    private static function generated_product_name( int $style_id ): string {
+        $school_id = absint( get_post_meta( $style_id, '_asevj_school_id', true ) );
+        $school = trim( (string) get_the_title( $school_id ) );
+        $style = trim( (string) get_the_title( $style_id ) );
+
+        if ( '' === $school ) {
+            return $style ?: 'Varsity Jacket';
+        }
+        if ( '' === $style ) {
+            return $school . ' Varsity Jacket';
+        }
+
+        return $school . ' – ' . $style;
+    }
+
+    private static function generated_product_sku( int $style_id ): string {
+        $settings = self::woo_settings();
+        $prefix = strtoupper( preg_replace( '/[^A-Za-z0-9-]+/', '-', (string) ( $settings['sku_prefix'] ?? 'ASE-VJ' ) ) );
+        $prefix = trim( $prefix, '-' ) ?: 'ASE-VJ';
+
+        $school_id = absint( get_post_meta( $style_id, '_asevj_school_id', true ) );
+        $school_slug = sanitize_title( (string) get_the_title( $school_id ) );
+        $style_slug = sanitize_title( (string) get_the_title( $style_id ) );
+
+        $body = strtoupper( trim( $school_slug . '-' . $style_slug, '-' ) );
+        $body = preg_replace( '/[^A-Z0-9-]+/', '-', $body );
+        $body = substr( $body, 0, 48 );
+
+        $sku = trim( $prefix . '-' . $body, '-' );
+        if ( function_exists( 'wc_get_product_id_by_sku' ) ) {
+            $existing = absint( wc_get_product_id_by_sku( $sku ) );
+            $linked = absint( get_post_meta( $style_id, '_asevj_woo_product_id', true ) );
+            if ( $existing && $existing !== $linked ) {
+                $sku .= '-' . $style_id;
+            }
+        }
+
+        return $sku;
+    }
+
+    private static function generated_long_description( int $style_id ): string {
+        $description = trim( (string) get_post_meta( $style_id, '_asevj_description', true ) );
+        $features_raw = (string) get_post_meta( $style_id, '_asevj_features', true );
+        $features = array_values( array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', $features_raw ) ?: [] ) ) );
+
+        $parts = [];
+        if ( '' !== $description ) {
+            $parts[] = '<p>' . esc_html( $description ) . '</p>';
+        }
+
+        if ( $features ) {
+            $items = '';
+            foreach ( $features as $feature ) {
+                $items .= '<li>' . esc_html( $feature ) . '</li>';
+            }
+            $parts[] = '<h3>Jacket Details</h3><ul>' . $items . '</ul>';
+        }
+
+        return implode( "\n", $parts );
+    }
+
+    private static function apply_style_to_product( $product, int $style_id, bool $creating = false ) {
+        if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+            return new WP_Error( 'asevj_invalid_product', 'WooCommerce could not create or load the product.' );
+        }
+
+        $settings = self::woo_settings();
+        $school_id = absint( get_post_meta( $style_id, '_asevj_school_id', true ) );
+
+        $product->set_name( self::generated_product_name( $style_id ) );
+
+        if ( $creating ) {
+            $status = in_array( (string) ( $settings['new_product_status'] ?? 'draft' ), [ 'draft', 'publish' ], true )
+                ? (string) $settings['new_product_status']
+                : 'draft';
+            $product->set_status( $status );
+            $product->set_catalog_visibility( 'visible' );
+        }
+
+        $price = self::style_base_price( $style_id );
+        if ( '' !== $price && $product instanceof WC_Product_Simple ) {
+            $product->set_regular_price( $price );
+        }
+
+        $description = trim( (string) get_post_meta( $style_id, '_asevj_description', true ) );
+        $product->set_short_description( $description );
+        $product->set_description( self::generated_long_description( $style_id ) );
+
+        $thumb = get_post_thumbnail_id( $style_id );
+        if ( $thumb ) {
+            $product->set_image_id( $thumb );
+        }
+
+        $gallery = array_filter(
+            array_map(
+                'absint',
+                explode( ',', (string) get_post_meta( $style_id, '_asevj_gallery_ids', true ) )
+            )
+        );
+        $product->set_gallery_image_ids( array_values( $gallery ) );
+
+        $category_id = self::ensure_product_category( (string) ( $settings['product_category'] ?? 'Varsity Jackets' ) );
+        if ( $category_id ) {
+            $current = array_map( 'absint', (array) $product->get_category_ids() );
+            if ( ! in_array( $category_id, $current, true ) ) {
+                $current[] = $category_id;
+            }
+            $product->set_category_ids( array_values( array_unique( $current ) ) );
+        }
+
+        if ( '' === (string) $product->get_sku() ) {
+            try {
+                $product->set_sku( self::generated_product_sku( $style_id ) );
+            } catch ( Exception $e ) {
+                // A conflicting SKU should not prevent the product itself from syncing.
+            }
+        }
+
+        $product_id = $product->save();
+        if ( ! $product_id ) {
+            return new WP_Error( 'asevj_product_save', 'WooCommerce could not save the product.' );
+        }
+
+        update_post_meta( $product_id, '_asevj_style_id', $style_id );
+        update_post_meta( $product_id, '_asevj_school_id', $school_id );
+        update_post_meta( $style_id, '_asevj_woo_product_id', $product_id );
+
+        return $product;
+    }
+
+    private static function create_or_sync_product( int $style_id, bool $create_missing = true ) {
+        if ( 'asevj_style' !== get_post_type( $style_id ) ) {
+            return new WP_Error( 'asevj_invalid_style', 'Invalid varsity jacket style.' );
+        }
+
+        $existing = self::style_product( $style_id );
+        if ( $existing ) {
+            return self::apply_style_to_product( $existing, $style_id, false );
+        }
+
+        if ( ! $create_missing ) {
+            return new WP_Error( 'asevj_missing_product', 'No WooCommerce product is linked.' );
+        }
+
+        $product = new WC_Product_Simple();
+        return self::apply_style_to_product( $product, $style_id, true );
+    }
+
+    private static function all_styles(): array {
+        return get_posts(
+            [
+                'post_type'      => 'asevj_style',
+                'post_status'    => [ 'publish', 'draft', 'private' ],
+                'posts_per_page' => -1,
+                'orderby'        => [ 'menu_order' => 'ASC', 'title' => 'ASC' ],
+                'order'          => 'ASC',
+            ]
+        );
+    }
+
+    public function save_woo_settings(): void {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_die( 'Permission denied.' );
+        }
+        check_admin_referer( 'asevj_save_woo_settings' );
+
+        $raw_price = isset( $_POST['default_base_price'] ) ? (string) wp_unslash( $_POST['default_base_price'] ) : '400';
+        $price = function_exists( 'wc_format_decimal' ) ? wc_format_decimal( $raw_price ) : preg_replace( '/[^0-9.]/', '', $raw_price );
+        if ( '' === $price ) {
+            $price = '400';
+        }
+
+        $status = isset( $_POST['new_product_status'] ) ? sanitize_key( wp_unslash( $_POST['new_product_status'] ) ) : 'draft';
+        if ( ! in_array( $status, [ 'draft', 'publish' ], true ) ) {
+            $status = 'draft';
+        }
+
+        $settings = [
+            'default_base_price' => $price,
+            'new_product_status' => $status,
+            'product_category'   => isset( $_POST['product_category'] ) ? sanitize_text_field( wp_unslash( $_POST['product_category'] ) ) : 'Varsity Jackets',
+            'sku_prefix'         => isset( $_POST['sku_prefix'] ) ? sanitize_text_field( wp_unslash( $_POST['sku_prefix'] ) ) : 'ASE-VJ',
+        ];
+
+        update_option( 'asevj_woo_settings', $settings );
+        self::set_notice( true, 'WooCommerce defaults saved', 'The global varsity jacket product defaults were updated.' );
+        self::admin_redirect( 'asevj-woocommerce' );
+    }
+
+    private static function run_bulk_woo( string $mode ): array {
+        $created = 0;
+        $synced = 0;
+        $skipped = 0;
+        $failed = 0;
+
+        foreach ( self::all_styles() as $style ) {
+            $has_product = (bool) self::style_product( (int) $style->ID );
+
+            if ( 'create' === $mode && $has_product ) {
+                $skipped++;
+                continue;
+            }
+            if ( 'sync' === $mode && ! $has_product ) {
+                $skipped++;
+                continue;
+            }
+
+            $result = self::create_or_sync_product( (int) $style->ID, 'sync' !== $mode );
+            if ( is_wp_error( $result ) ) {
+                $failed++;
+                continue;
+            }
+
+            if ( $has_product ) {
+                $synced++;
+            } else {
+                $created++;
+            }
+        }
+
+        return compact( 'created', 'synced', 'skipped', 'failed' );
+    }
+
+    private static function bulk_result_message( array $result ): string {
+        return sprintf(
+            '%d created, %d synced, %d skipped, %d failed.',
+            absint( $result['created'] ?? 0 ),
+            absint( $result['synced'] ?? 0 ),
+            absint( $result['skipped'] ?? 0 ),
+            absint( $result['failed'] ?? 0 )
+        );
+    }
+
+    public function bulk_create_woo_products(): void {
+        if ( ! current_user_can( 'edit_products' ) || ! class_exists( 'WooCommerce' ) ) {
+            wp_die( 'WooCommerce permission denied or WooCommerce is inactive.' );
+        }
+        check_admin_referer( 'asevj_bulk_create_woo_products' );
+        $result = self::run_bulk_woo( 'create' );
+        self::set_notice( 0 === $result['failed'], 'Missing products processed', self::bulk_result_message( $result ) );
+        self::admin_redirect( 'asevj-woocommerce' );
+    }
+
+    public function bulk_sync_woo_products(): void {
+        if ( ! current_user_can( 'edit_products' ) || ! class_exists( 'WooCommerce' ) ) {
+            wp_die( 'WooCommerce permission denied or WooCommerce is inactive.' );
+        }
+        check_admin_referer( 'asevj_bulk_sync_woo_products' );
+        $result = self::run_bulk_woo( 'sync' );
+        self::set_notice( 0 === $result['failed'], 'Linked products synchronized', self::bulk_result_message( $result ) );
+        self::admin_redirect( 'asevj-woocommerce' );
+    }
+
+    public function bulk_create_sync_woo_products(): void {
+        if ( ! current_user_can( 'edit_products' ) || ! class_exists( 'WooCommerce' ) ) {
+            wp_die( 'WooCommerce permission denied or WooCommerce is inactive.' );
+        }
+        check_admin_referer( 'asevj_bulk_create_sync_woo_products' );
+        $result = self::run_bulk_woo( 'all' );
+        self::set_notice( 0 === $result['failed'], 'All varsity products processed', self::bulk_result_message( $result ) );
+        self::admin_redirect( 'asevj-woocommerce' );
+    }
+
     private static function style_product( int $style_id ) {
         if ( ! function_exists( 'wc_get_product' ) ) {
             return null;
@@ -280,37 +594,22 @@ final class ASEVJ_Tools {
         if ( ! current_user_can( 'edit_products' ) || ! class_exists( 'WooCommerce' ) ) {
             wp_die( 'WooCommerce permission denied or WooCommerce is inactive.' );
         }
+
         $style_id = isset( $_POST['style_id'] ) ? absint( $_POST['style_id'] ) : 0;
         check_admin_referer( 'asevj_create_woo_' . $style_id );
-        if ( 'asevj_style' !== get_post_type( $style_id ) ) {
-            wp_die( 'Invalid jacket style.' );
-        }
-        $existing = self::style_product( $style_id );
-        if ( $existing ) {
+
+        if ( self::style_product( $style_id ) ) {
             self::set_notice( true, 'Already linked', 'That style already has a WooCommerce product.' );
             self::admin_redirect( 'asevj-woocommerce' );
         }
-        $school_id = absint( get_post_meta( $style_id, '_asevj_school_id', true ) );
-        $product = new WC_Product_Simple();
-        $product->set_name( trim( get_the_title( $school_id ) . ' ' . get_the_title( $style_id ) ) );
-        $product->set_status( 'draft' );
-        $product->set_catalog_visibility( 'visible' );
-        $price = (string) get_post_meta( $style_id, '_asevj_fallback_price', true );
-        if ( '' !== $price ) {
-            $product->set_regular_price( wc_format_decimal( $price ) );
+
+        $result = self::create_or_sync_product( $style_id, true );
+        if ( is_wp_error( $result ) ) {
+            self::set_notice( false, 'Product creation failed', $result->get_error_message() );
+        } else {
+            self::set_notice( true, 'WooCommerce product created', 'A product was created and linked using the global varsity defaults and this style’s images/details.' );
         }
-        $description = (string) get_post_meta( $style_id, '_asevj_description', true );
-        $product->set_short_description( $description );
-        $thumb = get_post_thumbnail_id( $style_id );
-        if ( $thumb ) {
-            $product->set_image_id( $thumb );
-        }
-        $gallery = array_filter( array_map( 'absint', explode( ',', (string) get_post_meta( $style_id, '_asevj_gallery_ids', true ) ) ) );
-        $product->set_gallery_image_ids( $gallery );
-        $product_id = $product->save();
-        update_post_meta( $product_id, '_asevj_style_id', $style_id );
-        update_post_meta( $style_id, '_asevj_woo_product_id', $product_id );
-        self::set_notice( true, 'WooCommerce product created', 'A draft product was created and linked. Review its pricing, variations, and purchasing options before publishing.' );
+
         self::admin_redirect( 'asevj-woocommerce' );
     }
 
@@ -318,29 +617,17 @@ final class ASEVJ_Tools {
         if ( ! current_user_can( 'edit_products' ) || ! class_exists( 'WooCommerce' ) ) {
             wp_die( 'WooCommerce permission denied or WooCommerce is inactive.' );
         }
+
         $style_id = isset( $_POST['style_id'] ) ? absint( $_POST['style_id'] ) : 0;
         check_admin_referer( 'asevj_sync_woo_' . $style_id );
-        $product = self::style_product( $style_id );
-        if ( ! $product ) {
-            self::set_notice( false, 'Sync failed', 'No WooCommerce product is linked to that style.' );
-            self::admin_redirect( 'asevj-woocommerce' );
+
+        $result = self::create_or_sync_product( $style_id, false );
+        if ( is_wp_error( $result ) ) {
+            self::set_notice( false, 'Sync failed', $result->get_error_message() );
+        } else {
+            self::set_notice( true, 'Product synced', 'Name, base price, descriptions, featured image, gallery, category, and varsity relationship were synchronized.' );
         }
-        $description = (string) get_post_meta( $style_id, '_asevj_description', true );
-        $product->set_short_description( $description );
-        $thumb = get_post_thumbnail_id( $style_id );
-        if ( $thumb ) {
-            $product->set_image_id( $thumb );
-        }
-        $gallery = array_filter( array_map( 'absint', explode( ',', (string) get_post_meta( $style_id, '_asevj_gallery_ids', true ) ) ) );
-        $product->set_gallery_image_ids( $gallery );
-        if ( $product instanceof WC_Product_Simple ) {
-            $price = (string) get_post_meta( $style_id, '_asevj_fallback_price', true );
-            if ( '' !== $price ) {
-                $product->set_regular_price( wc_format_decimal( $price ) );
-            }
-        }
-        $product->save();
-        self::set_notice( true, 'Product synced', 'Style images, gallery, description, and simple-product fallback price were pushed to WooCommerce.' );
+
         self::admin_redirect( 'asevj-woocommerce' );
     }
 
@@ -457,12 +744,12 @@ final class ASEVJ_Tools {
         if ( is_wp_error( $release ) ) {
             self::set_notice( false, 'GitHub check could not complete', $release->get_error_message() );
         } elseif ( empty( $release['version'] ) ) {
-            self::set_notice( true, 'No published releases found', 'The updater is ready, but the GitHub repository does not have a release yet.' );
+            self::set_notice( true, 'No published update found', 'The updater is ready, but the GitHub repository does not have a published update package yet.' );
         } elseif ( version_compare( $release['version'], ASEVJ_VERSION, '>' ) ) {
             self::set_notice( true, 'Update available', 'Version ' . $release['version'] . ' is available through the normal WordPress Plugins updater.' );
             delete_site_transient( 'update_plugins' );
         } else {
-            self::set_notice( true, 'You are current', 'Installed version ' . ASEVJ_VERSION . ' is at least as new as the latest GitHub release.' );
+            self::set_notice( true, 'You are current', 'Installed version ' . ASEVJ_VERSION . ' is at least as new as the latest published GitHub update.' );
         }
         self::admin_redirect( 'asevj-tools' );
     }
@@ -477,23 +764,72 @@ final class ASEVJ_Tools {
 
     public static function render_woo_manager(): void {
         self::notice();
+
         if ( ! class_exists( 'WooCommerce' ) ) {
-            echo '<div class="asevj-status-card"><strong>WooCommerce is not active</strong><span>The varsity gallery works without it. Activate WooCommerce when you are ready to sell jacket styles as products.</span></div>';
+            echo '<div class="asevj-status-card"><strong>WooCommerce is not active</strong><span>Activate WooCommerce to turn varsity jacket styles into sellable products.</span></div>';
             return;
         }
-        $styles = get_posts( [ 'post_type' => 'asevj_style', 'post_status' => [ 'publish', 'draft', 'private' ], 'posts_per_page' => -1, 'orderby' => 'title', 'order' => 'ASC' ] );
-        echo '<div class="asevj-status-card is-good"><strong>WooCommerce connected</strong><span>Each style can remain showcase-only, link to an existing product, or generate a new draft product from its current style data.</span></div>';
-        echo '<section class="asevj-admin-card"><div class="asevj-panel-heading"><div><h2>Style → Product Manager</h2><p>Creating a product here is intentionally safe: it starts as a <strong>draft</strong> so you can add sizes, variations, pricing, and purchasing rules before publishing.</p></div></div><div class="asevj-woo-manager">';
+
+        $settings = self::woo_settings();
+        $styles = self::all_styles();
+        $linked = 0;
+        foreach ( $styles as $style ) {
+            if ( self::style_product( (int) $style->ID ) ) {
+                $linked++;
+            }
+        }
+        $missing = max( 0, count( $styles ) - $linked );
+
+        echo '<div class="asevj-status-card is-good"><strong>WooCommerce connected</strong><span>' . esc_html( $linked ) . ' of ' . esc_html( count( $styles ) ) . ' jacket styles are linked to products. ' . esc_html( $missing ) . ' still need products.</span></div>';
+
+        echo '<div class="asevj-dashboard-grid asevj-woo-bulk-grid">';
+
+        echo '<section class="asevj-admin-card"><div class="asevj-panel-heading"><div><h2>Varsity Product Defaults</h2><p>These defaults make bulk setup fast. A style can override only its base price when needed.</p></div></div>';
+        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+        wp_nonce_field( 'asevj_save_woo_settings' );
+        echo '<input type="hidden" name="action" value="asevj_save_woo_settings">';
+        echo '<div class="asevj-grid asevj-grid-2">';
+        echo '<div class="asevj-field"><label><strong>Default Base Price</strong></label><div class="asevj-price-input"><span>$</span><input type="number" min="0" step="0.01" name="default_base_price" value="' . esc_attr( $settings['default_base_price'] ) . '"></div><p class="description">Used for every jacket style unless that style has a Base Price Override. Default: $400.</p></div>';
+        echo '<div class="asevj-field"><label><strong>New Product Status</strong></label><select name="new_product_status"><option value="draft" ' . selected( $settings['new_product_status'], 'draft', false ) . '>Draft — review before publishing</option><option value="publish" ' . selected( $settings['new_product_status'], 'publish', false ) . '>Published immediately</option></select><p class="description">This only affects newly generated products.</p></div>';
+        echo '<div class="asevj-field"><label><strong>Product Category</strong></label><input name="product_category" value="' . esc_attr( $settings['product_category'] ) . '"><p class="description">Created automatically if it does not already exist.</p></div>';
+        echo '<div class="asevj-field"><label><strong>SKU Prefix</strong></label><input name="sku_prefix" value="' . esc_attr( $settings['sku_prefix'] ) . '"><p class="description">Example: ASE-VJ-CROOKSVILLE-CLASSIC-VARSITY-JACKET.</p></div>';
+        echo '</div><button class="button button-primary">Save Product Defaults</button></form></section>';
+
+        echo '<section class="asevj-admin-card"><div class="asevj-panel-heading"><div><h2>Bulk Product Setup</h2><p>Create the missing WooCommerce products and synchronize the products that are already linked.</p></div></div>';
+        echo '<div class="asevj-stats asevj-mini-stats"><div><strong>' . esc_html( count( $styles ) ) . '</strong><span>Total Styles</span></div><div><strong>' . esc_html( $linked ) . '</strong><span>Linked</span></div><div><strong>' . esc_html( $missing ) . '</strong><span>Missing</span></div></div>';
+        echo '<div class="asevj-callout"><strong>What gets synchronized?</strong><span>Product name, effective base price, short/full description, featured image, gallery, Varsity Jackets category, SKU when missing, and the style ↔ product link.</span></div>';
+        echo '<p class="description"><strong>Price rule:</strong> style Base Price Override → otherwise global $' . esc_html( $settings['default_base_price'] ) . '. Syncing intentionally pushes that effective price to simple WooCommerce products.</p>';
+        echo '<div class="asevj-bulk-actions">';
+
+        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+        wp_nonce_field( 'asevj_bulk_create_sync_woo_products' );
+        echo '<input type="hidden" name="action" value="asevj_bulk_create_sync_woo_products"><button class="button button-primary button-hero">Create / Sync All Styles</button></form>';
+
+        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+        wp_nonce_field( 'asevj_bulk_create_woo_products' );
+        echo '<input type="hidden" name="action" value="asevj_bulk_create_woo_products"><button class="button">Create Missing Products</button></form>';
+
+        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+        wp_nonce_field( 'asevj_bulk_sync_woo_products' );
+        echo '<input type="hidden" name="action" value="asevj_bulk_sync_woo_products"><button class="button">Sync Linked Products</button></form>';
+
+        echo '</div></section></div>';
+
+        echo '<section class="asevj-admin-card"><div class="asevj-panel-heading"><div><h2>Style → Product Manager</h2><p>Review individual jacket styles, pricing overrides, and WooCommerce links. Products generated here use the same bulk defaults above.</p></div></div><div class="asevj-woo-manager">';
         foreach ( $styles as $style ) {
             $school_id = absint( get_post_meta( $style->ID, '_asevj_school_id', true ) );
             $product_id = absint( get_post_meta( $style->ID, '_asevj_woo_product_id', true ) );
             $product = $product_id ? wc_get_product( $product_id ) : null;
             $thumb = get_the_post_thumbnail_url( $style->ID, 'thumbnail' );
+            $override = trim( (string) get_post_meta( $style->ID, '_asevj_fallback_price', true ) );
+            $effective = self::style_base_price( (int) $style->ID );
+
             echo '<article class="asevj-woo-row"><div class="asevj-style-thumb">' . ( $thumb ? '<img src="' . esc_url( $thumb ) . '" alt="">' : '<span class="dashicons dashicons-format-image"></span>' ) . '</div><div class="asevj-woo-row__main"><small>' . esc_html( get_the_title( $school_id ) ) . '</small><strong>' . esc_html( get_the_title( $style ) ) . '</strong>';
+            echo '<span class="asevj-price-source"><b>$' . esc_html( $effective ) . '</b> ' . ( '' !== $override ? 'style override' : 'global default' ) . '</span>';
             if ( $product ) {
                 echo '<span class="asevj-badge is-green">Linked: #' . esc_html( $product_id ) . '</span><span>' . wp_kses_post( $product->get_price_html() ?: 'No Woo price yet' ) . '</span>';
             } else {
-                echo '<span class="asevj-badge">Showcase only</span>';
+                echo '<span class="asevj-badge">Product not created</span>';
             }
             echo '</div><div class="asevj-woo-row__actions">';
             if ( $product ) {
@@ -503,9 +839,9 @@ final class ASEVJ_Tools {
             } else {
                 echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
                 wp_nonce_field( 'asevj_create_woo_' . $style->ID );
-                echo '<input type="hidden" name="action" value="asevj_create_woo_product"><input type="hidden" name="style_id" value="' . esc_attr( $style->ID ) . '"><button class="button button-primary">Create Draft Product</button></form>';
+                echo '<input type="hidden" name="action" value="asevj_create_woo_product"><input type="hidden" name="style_id" value="' . esc_attr( $style->ID ) . '"><button class="button button-primary">Create Product</button></form>';
             }
-            echo '<a class="button-link" href="' . esc_url( get_edit_post_link( $style->ID ) ) . '">Edit style</a></div></article>';
+            echo '<a class="button-link" href="' . esc_url( get_edit_post_link( $style->ID ) ) . '">Edit style / price override</a></div></article>';
         }
         echo '</div></section>';
     }
@@ -515,7 +851,7 @@ final class ASEVJ_Tools {
         echo '<div class="asevj-dashboard-grid"><section class="asevj-admin-card"><h2>Installed Build</h2>';
         echo '<p><strong>Version:</strong> ' . esc_html( ASEVJ_VERSION ) . '</p>';
         echo '<p><strong>Updater:</strong> Native WordPress + GitHub Release asset</p>';
-        echo '<p><strong>Repository:</strong> <code>rolejarczyk/ASE.VarsityJackets</code></p>';
+        echo '<p><strong>Repository:</strong> <code>All-Star-Embroidery/varsity-jackets</code></p>';
         echo '<p><strong>Manifest:</strong> <code>latest.json</code> (30-minute cache)</p>';
         echo '<p><span class="asevj-badge is-green">Automatic updates enabled</span></p>';
         echo '<p class="description">Varsity Jackets is explicitly allowed to auto-install newer versions after WordPress detects them. Packages must be genuine GitHub Release assets; repository/raw ZIPs are rejected by the updater.</p>';

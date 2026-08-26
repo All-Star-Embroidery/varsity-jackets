@@ -1,7 +1,7 @@
 {
   "apiVersion": 3,
   "name": "asevj/hero",
-  "version": "0.2.0-beta.9.1",
+  "version": "1.0.3",
   "title": "Varsity Hero",
   "category": "all-star-embroidery",
   "icon": "cover-image",
@@ -10,36 +10,184 @@
   "editorScript": "asevj-editor",
   "editorStyle": "asevj-editor-style",
   "attributes": {
-    "title": {"type": "string", "default": ""},
-    "kicker": {"type": "string", "default": ""},
-    "body": {"type": "string", "default": ""},
-    "showFeatures": {"type": "boolean", "default": true},
-    "heroHeight": {"type": "number", "default": 0},
-    "backgroundColor": {"type": "string", "default": ""},
-    "fullBleed": {"type": "boolean", "default": true},
-    "topFadeColor": {"type": "string", "default": "#101B31"},
-    "topFadeHeight": {"type": "number", "default": 110},
-    "titleSize": {"type": "number", "default": 0},
-    "kickerSize": {"type": "number", "default": 0},
-    "bodySize": {"type": "number", "default": 0},
-    "contentPaddingX": {"type": "number", "default": 0},
-    "contentPaddingY": {"type": "number", "default": 0},
-    "featureScale": {"type": "number", "default": 100},
-    "jacketScale": {"type": "number", "default": 100},
-    "visualBackgroundColor": {"type": "string", "default": "#07111F"},
-    "jacketOverlayColor": {"type": "string", "default": "#0B162A"},
-    "jacketOverlayOpacity": {"type": "number", "default": 18},
-    "glowColor": {"type": "string", "default": "#27456F"},
-    "glowOpacity": {"type": "number", "default": 32},
-    "glowSize": {"type": "number", "default": 68},
-    "contentOffsetX": {"type": "number", "default": 0},
-    "contentOffsetY": {"type": "number", "default": 0},
-    "featureOffsetX": {"type": "number", "default": 0},
-    "featureOffsetY": {"type": "number", "default": 0},
-    "jacketOffsetX": {"type": "number", "default": 0},
-    "jacketOffsetY": {"type": "number", "default": 0},
-    "glowOffsetX": {"type": "number", "default": 0},
-    "glowOffsetY": {"type": "number", "default": 0}
+    "title": {
+      "type": "string",
+      "default": ""
+    },
+    "kicker": {
+      "type": "string",
+      "default": ""
+    },
+    "body": {
+      "type": "string",
+      "default": ""
+    },
+    "showFeatures": {
+      "type": "boolean",
+      "default": true
+    },
+    "heroHeight": {
+      "type": "number",
+      "default": 0
+    },
+    "backgroundColor": {
+      "type": "string",
+      "default": ""
+    },
+    "fullBleed": {
+      "type": "boolean",
+      "default": true
+    },
+    "topFadeColor": {
+      "type": "string",
+      "default": "#101B31"
+    },
+    "topFadeHeight": {
+      "type": "number",
+      "default": 110
+    },
+    "titleSize": {
+      "type": "number",
+      "default": 0
+    },
+    "kickerSize": {
+      "type": "number",
+      "default": 0
+    },
+    "bodySize": {
+      "type": "number",
+      "default": 0
+    },
+    "contentPaddingX": {
+      "type": "number",
+      "default": 0
+    },
+    "contentPaddingY": {
+      "type": "number",
+      "default": 0
+    },
+    "featureScale": {
+      "type": "number",
+      "default": 100
+    },
+    "jacketScale": {
+      "type": "number",
+      "default": 100
+    },
+    "visualBackgroundColor": {
+      "type": "string",
+      "default": "#07111F"
+    },
+    "jacketOverlayColor": {
+      "type": "string",
+      "default": "#0B162A"
+    },
+    "jacketOverlayOpacity": {
+      "type": "number",
+      "default": 18
+    },
+    "glowColor": {
+      "type": "string",
+      "default": "#27456F"
+    },
+    "glowOpacity": {
+      "type": "number",
+      "default": 32
+    },
+    "glowSize": {
+      "type": "number",
+      "default": 68
+    },
+    "contentOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "contentOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "featureOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "featureOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "jacketOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "jacketOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "glowOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "glowOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileTitleSize": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileContentPaddingX": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileContentPaddingY": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileFeatureScale": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileJacketScale": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileVisualHeight": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileContentOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileContentOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileFeatureOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileFeatureOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileJacketOffsetX": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileJacketOffsetY": {
+      "type": "number",
+      "default": 0
+    },
+    "mobileUseMainControls": {
+      "type": "boolean",
+      "default": false
+    }
   },
-  "supports": {"html": false, "align": ["wide", "full"]}
+  "supports": {
+    "html": false,
+    "align": [
+      "wide",
+      "full"
+    ]
+  }
 }

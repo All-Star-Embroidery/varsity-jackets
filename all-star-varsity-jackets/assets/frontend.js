@@ -26,59 +26,115 @@
         return wrap;
     }
 
-    function createModal(root, school, style) {
+    function createModal(root, school, style, startImageIndex) {
         var old = document.querySelector('.asevj-modal');
         if (old) old.remove();
 
         var modal = document.createElement('div');
         modal.className = 'asevj-modal';
         modal.style.cssText = root.getAttribute('style') || '';
-        modal.innerHTML = '<div class="asevj-modal__backdrop" data-close></div><div class="asevj-modal__panel" role="dialog" aria-modal="true"><button class="asevj-modal__close" data-close aria-label="Close">×</button><div class="asevj-modal__content"><div class="asevj-modal__media"><div class="asevj-modal__main"></div><div class="asevj-modal__thumbs"></div></div><div class="asevj-modal__details"></div></div></div>';
+        modal.innerHTML =
+            '<div class="asevj-modal__backdrop" data-close></div>' +
+            '<div class="asevj-modal__panel" role="dialog" aria-modal="true" aria-label="' + String(style.name || 'Jacket details').replace(/"/g, '&quot;') + '">' +
+                '<button class="asevj-modal__close" data-close aria-label="Close">×</button>' +
+                '<div class="asevj-modal__content">' +
+                    '<div class="asevj-modal__media">' +
+                        '<div class="asevj-modal__main"></div>' +
+                        '<div class="asevj-modal__thumbs"></div>' +
+                    '</div>' +
+                    '<div class="asevj-modal__details"></div>' +
+                '</div>' +
+                '<div class="asevj-modal__sticky" hidden>' +
+                    '<div class="asevj-modal__sticky-price"></div>' +
+                    '<a class="asevj-btn asevj-btn-primary asevj-modal__sticky-cta" href="#">CUSTOMIZE JACKET</a>' +
+                '</div>' +
+            '</div>';
         document.body.appendChild(modal);
 
         var main = modal.querySelector('.asevj-modal__main');
         var thumbs = modal.querySelector('.asevj-modal__thumbs');
         var details = modal.querySelector('.asevj-modal__details');
+        var sticky = modal.querySelector('.asevj-modal__sticky');
+        var stickyPrice = modal.querySelector('.asevj-modal__sticky-price');
+        var stickyCta = modal.querySelector('.asevj-modal__sticky-cta');
         var allImages = [];
 
         if (style.imageFull || style.image) {
-            allImages.push({ full: style.imageFull || style.image, thumb: style.image || style.imageFull, alt: style.name });
+            allImages.push({
+                full: style.imageFull || style.image,
+                thumb: style.image || style.imageFull,
+                alt: style.name,
+                role: 'front'
+            });
         }
         (style.gallery || []).forEach(function (image) { allImages.push(image); });
 
-        function showImage(image) {
+        var thumbButtons = [];
+
+        function showImage(image, activeIndex) {
             main.innerHTML = '';
             if (!image) {
                 main.appendChild(text('span', 'No image added yet'));
                 return;
             }
+
             var img = document.createElement('img');
             img.src = image.full || image.thumb;
             img.alt = image.alt || style.name;
+            img.decoding = 'async';
             main.appendChild(img);
+
+            thumbButtons.forEach(function (button, index) {
+                button.classList.toggle('is-active', index === activeIndex);
+                button.setAttribute('aria-pressed', index === activeIndex ? 'true' : 'false');
+            });
         }
 
-        if (!allImages.length) showImage(null);
+        if (!allImages.length) {
+            showImage(null, -1);
+        }
+
         allImages.forEach(function (image, index) {
             var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.setAttribute('aria-label', 'Show image ' + (index + 1));
+            btn.setAttribute('aria-pressed', 'false');
+
             var img = document.createElement('img');
             img.src = image.thumb || image.full;
             img.alt = image.alt || '';
             btn.appendChild(img);
-            btn.addEventListener('click', function () { showImage(image); });
+
+            btn.addEventListener('click', function () {
+                showImage(image, index);
+            });
+
+            thumbButtons.push(btn);
             thumbs.appendChild(btn);
-            if (index === 0) showImage(image);
         });
 
-        details.appendChild(text('div', style.galleryMode ? (school.name + ' • SCHOOL GALLERY') : ('STYLE ' + style.number + ' • ' + school.name), 'asevj-modal__eyebrow'));
+        if (allImages.length) {
+            var initialIndex = Number.isFinite(Number(startImageIndex)) ? Number(startImageIndex) : 0;
+            initialIndex = Math.max(0, Math.min(initialIndex, allImages.length - 1));
+            showImage(allImages[initialIndex], initialIndex);
+        }
+
+        details.appendChild(text(
+            'div',
+            style.galleryMode ? (school.name + ' • SCHOOL GALLERY') : ('STYLE ' + style.number + ' • ' + school.name),
+            'asevj-modal__eyebrow'
+        ));
         details.appendChild(text('h3', style.name));
+
         if (style.subtitle) details.appendChild(text('p', style.subtitle));
         if (style.description) details.appendChild(text('p', style.description));
 
         if (style.features && style.features.length) {
             var ul = document.createElement('ul');
             ul.className = 'asevj-modal__features';
-            style.features.forEach(function (feature) { ul.appendChild(text('li', feature)); });
+            style.features.forEach(function (feature) {
+                ul.appendChild(text('li', feature));
+            });
             details.appendChild(ul);
         }
 
@@ -87,32 +143,38 @@
             price.className = 'asevj-modal__price';
             price.innerHTML = style.priceHtml;
             details.appendChild(price);
+
+            stickyPrice.innerHTML = '<small>STARTING AT</small><strong>' + style.priceHtml + '</strong>';
         }
 
         if (style.url) {
-            var link = document.createElement('a');
-            link.className = 'asevj-btn asevj-btn-primary';
-            link.href = style.url;
-            link.textContent = style.cta || 'Customize This Jacket';
-            details.appendChild(link);
+            sticky.hidden = false;
+            stickyCta.href = style.url;
+            stickyCta.textContent = 'CUSTOMIZE JACKET';
         }
 
         function close() {
             modal.classList.remove('is-open');
             document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
             setTimeout(function () { modal.remove(); }, 160);
         }
 
-        modal.querySelectorAll('[data-close]').forEach(function (el) { el.addEventListener('click', close); });
+        modal.querySelectorAll('[data-close]').forEach(function (el) {
+            el.addEventListener('click', close);
+        });
+
         document.addEventListener('keydown', function esc(e) {
             if (e.key === 'Escape') {
                 document.removeEventListener('keydown', esc);
                 close();
             }
         });
+
         requestAnimationFrame(function () {
             modal.classList.add('is-open');
             document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
         });
     }
 
@@ -143,16 +205,36 @@
         var reset = root.querySelector('[data-asevj-reset]');
         var noResults = root.querySelector('[data-asevj-no-results]');
         var strip = root.querySelector('[data-asevj-school-strip]');
-        var grid = root.querySelector('[data-asevj-style-grid]');
-        var galleryButton = root.querySelector('[data-asevj-school-gallery]');
-        var currentIndex = 0;
+        var stylePicker = root.querySelector('[data-asevj-style-picker]');
+        var galleryStage = root.querySelector('[data-asevj-selected-gallery]');
+        var fullGalleryButton = root.querySelector('[data-asevj-full-gallery]');
+        var detailButton = root.querySelector('[data-asevj-selected-detail]');
+        var customizeButton = root.querySelector('[data-asevj-selected-customize]');
+        var currentIndex = Number.isFinite(Number(data.defaultIndex)) ? Number(data.defaultIndex) : 0;
+        currentIndex = Math.max(0, Math.min(currentIndex, schools.length - 1));
+        var currentStyleIndex = 0;
         var idleTimer = null;
+        var hintTimer = null;
         var marqueeRaf = null;
         var marqueeDirection = 1;
         var marqueeLastTs = 0;
         var marqueePaused = true;
         var marqueeDelay = 10000;
         var marqueeSpeed = 18;
+
+        function hideScrollHint() {
+            root.classList.remove('show-school-scroll-hint');
+            if (hintTimer) {
+                clearTimeout(hintTimer);
+                hintTimer = null;
+            }
+        }
+
+        function showScrollHint() {
+            root.classList.add('show-school-scroll-hint');
+            if (hintTimer) clearTimeout(hintTimer);
+            hintTimer = setTimeout(hideScrollHint, 7000);
+        }
 
         function stopMarquee() {
             marqueePaused = true;
@@ -194,85 +276,146 @@
         }
 
         function markInteraction() {
+            hideScrollHint();
             stopMarquee();
             root.classList.remove('is-school-marquee-active');
             if (idleTimer) clearTimeout(idleTimer);
             idleTimer = setTimeout(startMarquee, marqueeDelay);
         }
 
-        function styleCard(school, style, index) {
-            var card = document.createElement('article');
-            card.className = 'asevj-style-card';
-            card.dataset.styleIndex = index;
-            card.appendChild(text('div', 'STYLE ' + style.number, 'asevj-style-card__label'));
+        function galleryLabel(image, index) {
+            var role = (image && image.role ? image.role : '').toLowerCase();
+            var labels = { back: 'BACK VIEW', letter: 'LETTER DETAIL', sleeve: 'SLEEVE DETAIL', detail: 'DETAIL VIEW' };
+            if (labels[role]) return labels[role];
+            var alt = (image && image.alt ? image.alt : '').toLowerCase();
+            if (alt.indexOf('back') !== -1) return 'BACK VIEW';
+            if (alt.indexOf('letter') !== -1) return 'LETTER DETAIL';
+            if (alt.indexOf('sleeve') !== -1) return 'SLEEVE DETAIL';
+            if (alt.indexOf('detail') !== -1) return 'DETAIL VIEW';
+            return 'DETAIL ' + (index + 1);
+        }
 
-            var imageButton = document.createElement('button');
-            imageButton.type = 'button';
-            imageButton.className = 'asevj-style-card__image';
-            imageButton.setAttribute('aria-label', 'View ' + style.name + ' details');
-            imageButton.addEventListener('click', function () { createModal(root, school, style); });
-            if (style.image) {
+        function allStyleImages(style) {
+            var images = [];
+            if (style.imageFull || style.image) {
+                images.push({ full: style.imageFull || style.image, thumb: style.image || style.imageFull, alt: style.name, role: 'front' });
+            }
+            (style.gallery || []).forEach(function (image) { images.push(image); });
+            return images;
+        }
+
+        function renderStylePicker(school) {
+            if (!stylePicker) return;
+            stylePicker.innerHTML = '';
+            (school.styles || []).forEach(function (style, index) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'asevj-style-choice' + (index === currentStyleIndex ? ' is-active' : '');
+                btn.dataset.asevjStyleChoice = index;
+                btn.appendChild(text('span', 'STYLE ' + style.number));
+                btn.appendChild(text('strong', style.name));
+                if (style.subtitle) btn.appendChild(text('small', style.subtitle));
+                btn.addEventListener('click', function () {
+                    markInteraction();
+                    selectStyle(index);
+                });
+                stylePicker.appendChild(btn);
+            });
+        }
+
+        function renderGallery(style) {
+            if (!galleryStage) return;
+            galleryStage.innerHTML = '';
+            var images = allStyleImages(style);
+            if (!images.length) {
+                var empty = text('div', 'No jacket photography added yet.', 'asevj-selected-gallery is-empty');
+                galleryStage.appendChild(empty);
+                return;
+            }
+
+            var visible = images.slice(0, 5);
+            var extra = Math.max(0, images.length - visible.length);
+            var grid = document.createElement('div');
+            grid.className = 'asevj-selected-gallery' + (visible.length <= 2 ? ' has-few-images' : '');
+            visible.forEach(function (image, index) {
+                var tile = document.createElement('button');
+                tile.type = 'button';
+                tile.className = 'asevj-gallery-tile' + (index === 0 ? ' is-main' : '');
+                tile.dataset.asevjGalleryImage = index;
+                var label = index === 0 ? 'FEATURED JACKET' : galleryLabel(image, index - 1);
+                tile.setAttribute('aria-label', 'Open ' + label);
                 var img = document.createElement('img');
-                img.src = style.image;
-                img.alt = style.name;
-                imageButton.appendChild(img);
-            } else {
-                imageButton.appendChild(jacketPlaceholder());
-            }
-            if (style.linkedWoo) imageButton.appendChild(text('span', 'WooCommerce', 'asevj-woo-pill'));
-            card.appendChild(imageButton);
+                img.src = image.thumb || image.full;
+                img.alt = image.alt || style.name;
+                tile.appendChild(img);
+                tile.appendChild(text('span', label));
+                if (extra && index === visible.length - 1) tile.appendChild(text('b', '+' + extra + ' MORE'));
+                tile.addEventListener('click', function () {
+                    var school = schools[currentIndex];
+                    if (school) createModal(root, school, style, index);
+                });
+                grid.appendChild(tile);
+            });
+            galleryStage.appendChild(grid);
+        }
 
-            var body = document.createElement('div');
-            body.className = 'asevj-style-card__body';
+        function selectStyle(index) {
+            var school = schools[currentIndex];
+            if (!school || !school.styles || !school.styles.length) return;
+            currentStyleIndex = Math.max(0, Math.min(index, school.styles.length - 1));
+            var style = school.styles[currentStyleIndex];
 
-            var titleButton = document.createElement('button');
-            titleButton.type = 'button';
-            titleButton.className = 'asevj-style-card__title';
-            titleButton.textContent = style.name;
-            titleButton.addEventListener('click', function () { createModal(root, school, style); });
-            body.appendChild(titleButton);
-
-            if (style.subtitle) body.appendChild(text('div', style.subtitle, 'asevj-style-subtitle'));
-            body.appendChild(text('p', style.description || 'Premium varsity jacket style with custom decoration options.'));
-
-            if (style.features && style.features.length) {
-                var features = document.createElement('div');
-                features.className = 'asevj-style-feature-row';
-                style.features.slice(0, 3).forEach(function (feature) { features.appendChild(text('span', '✓ ' + feature)); });
-                body.appendChild(features);
+            if (stylePicker) {
+                Array.prototype.slice.call(stylePicker.querySelectorAll('.asevj-style-choice')).forEach(function (choice, choiceIndex) {
+                    choice.classList.toggle('is-active', choiceIndex === currentStyleIndex);
+                });
             }
 
-            if (data.showPrices && style.priceHtml) {
-                var price = document.createElement('div');
-                price.className = 'asevj-style-price';
-                price.appendChild(text('small', 'STARTING AT'));
-                var strong = document.createElement('strong');
-                strong.innerHTML = style.priceHtml;
-                price.appendChild(strong);
-                body.appendChild(price);
+            var number = root.querySelector('[data-asevj-selected-number]');
+            var name = root.querySelector('[data-asevj-selected-name]');
+            var subtitle = root.querySelector('[data-asevj-selected-subtitle]');
+            var features = root.querySelector('[data-asevj-selected-features]');
+            var price = root.querySelector('[data-asevj-selected-price]');
+            if (number) number.textContent = 'STYLE ' + style.number;
+            if (name) name.textContent = style.name;
+            if (subtitle) {
+                subtitle.textContent = style.subtitle || '';
+                subtitle.hidden = !style.subtitle;
+            }
+            if (features) {
+                features.innerHTML = '';
+                (style.features || []).slice(0, 4).forEach(function (feature) { features.appendChild(text('span', '✓ ' + feature)); });
+                features.hidden = !(style.features && style.features.length);
+            }
+            if (price) {
+                price.innerHTML = '';
+                if (data.showPrices && style.priceHtml) {
+                    price.hidden = false;
+                    price.appendChild(text('small', 'STARTING AT'));
+                    var strong = document.createElement('strong');
+                    strong.innerHTML = style.priceHtml;
+                    price.appendChild(strong);
+                } else {
+                    price.hidden = true;
+                }
             }
 
-            if (style.url) {
-                var cta = document.createElement('a');
-                cta.className = 'asevj-btn asevj-btn-primary';
-                cta.href = style.url;
-                cta.innerHTML = (style.cta || 'Customize This Jacket') + ' <span>↗</span>';
-                body.appendChild(cta);
-            } else {
-                var ctaButton = document.createElement('button');
-                ctaButton.type = 'button';
-                ctaButton.className = 'asevj-btn asevj-btn-primary is-showcase';
-                ctaButton.innerHTML = (style.cta || 'View Jacket Details') + ' <span>→</span>';
-                ctaButton.addEventListener('click', function () { createModal(root, school, style); });
-                body.appendChild(ctaButton);
+            if (customizeButton) {
+                if (style.url) {
+                    customizeButton.href = style.url;
+                    customizeButton.hidden = false;
+                } else {
+                    customizeButton.href = '#';
+                    customizeButton.hidden = true;
+                }
             }
 
-            card.appendChild(body);
-            return card;
+            renderGallery(style);
         }
 
         function render(index) {
             currentIndex = index;
+            currentStyleIndex = 0;
             var school = schools[index];
             if (!school) return;
 
@@ -294,18 +437,12 @@
             var name = root.querySelector('[data-asevj-school-name]');
             var mascotText = root.querySelector('[data-asevj-mascot-text]');
             var location = root.querySelector('[data-asevj-location]');
-            var description = root.querySelector('[data-asevj-description]');
             if (name) name.textContent = school.name;
             if (mascotText) mascotText.textContent = school.mascot || 'School';
             if (location) location.textContent = school.location || '';
-            if (description) description.textContent = school.description || 'Explore the available varsity jacket styles for this school.';
 
-            if (grid) {
-                grid.innerHTML = '';
-                (school.styles || []).forEach(function (style, styleIndex) {
-                    grid.appendChild(styleCard(school, style, styleIndex));
-                });
-            }
+            renderStylePicker(school);
+            selectStyle(0);
         }
 
         function applyFilters() {
@@ -355,33 +492,29 @@
             });
             strip.addEventListener('mouseleave', markInteraction);
         }
-        if (galleryButton) galleryButton.addEventListener('click', function () {
+        function openCurrentStyle() {
             var school = schools[currentIndex];
             if (!school || !school.styles || !school.styles.length) return;
-            var images = [];
-            school.styles.forEach(function (style) {
-                if (style.imageFull || style.image) images.push({ full: style.imageFull || style.image, thumb: style.image || style.imageFull, alt: style.name });
-                (style.gallery || []).forEach(function (image) { images.push(image); });
-            });
-            var first = images.shift() || null;
-            createModal(root, school, {
-                galleryMode: true,
-                number: '',
-                name: school.name + ' Jacket Gallery',
-                subtitle: school.mascot || '',
-                description: school.description || 'Browse varsity jacket examples for this school.',
-                image: first ? first.thumb : '',
-                imageFull: first ? first.full : '',
-                gallery: images,
-                features: [],
-                priceHtml: '',
-                url: '',
-                cta: ''
-            });
-        });
+            var style = school.styles[currentStyleIndex] || school.styles[0];
+            createModal(root, school, style);
+        }
+        if (fullGalleryButton) fullGalleryButton.addEventListener('click', openCurrentStyle);
+        if (detailButton) detailButton.addEventListener('click', openCurrentStyle);
 
-        render(0);
-        markInteraction();
+
+        render(currentIndex);
+        if (strip) {
+            requestAnimationFrame(function () {
+                var active = tiles.find(function (tile) { return Number(tile.dataset.schoolIndex) === currentIndex; });
+                if (active) {
+                    var target = active.offsetLeft - Math.max(0, (strip.clientWidth - active.offsetWidth) / 2);
+                    strip.scrollLeft = Math.max(0, target);
+                }
+            });
+        }
+        showScrollHint();
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(startMarquee, marqueeDelay);
     }
 
     function init() {
