@@ -1,9 +1,8 @@
 name: Publish WordPress Plugin Release
 
-# Manual-only by design. GitHub Actions minutes are limited, so ordinary pushes,
-# documentation edits, migrations, and historical-version preservation must not
-# consume runner time. Run this workflow only when intentionally publishing a
-# real current plugin release.
+# Manual-only by design. Build source first, add matching release notes, then run
+# this workflow with the exact plugin version. All releases and WordPress update
+# manifests are owned by All-Star-Embroidery/varsity-jackets.
 on:
   workflow_dispatch:
     inputs:
@@ -36,7 +35,6 @@ jobs:
           REQUESTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-
           MAIN='all-star-varsity-jackets/all-star-varsity-jackets.php'
           HEADER_VERSION=$(sed -nE 's/^ \* Version: (.+)$/\1/p' "$MAIN" | head -n1 | tr -d '\r')
           INTERNAL_VERSION=$(sed -nE "s/^define\( 'ASEVJ_VERSION', '([^']+)' \);$/\1/p" "$MAIN" | head -n1 | tr -d '\r')
@@ -44,7 +42,6 @@ jobs:
           test -n "$HEADER_VERSION"
           test "$HEADER_VERSION" = "$INTERNAL_VERSION"
           [[ "$HEADER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]]
-
           test "$REQUESTED_VERSION" = "$HEADER_VERSION" || {
             echo "Requested version $REQUESTED_VERSION does not match plugin source $HEADER_VERSION" >&2
             exit 1
@@ -53,7 +50,7 @@ jobs:
           VERSION="$HEADER_VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "zip=all-star-varsity-jackets-$VERSION.zip" >> "$GITHUB_OUTPUT"
-          echo "tag=asevj-v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
           if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
@@ -61,10 +58,14 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Validate source
+      - name: Validate source and release notes
         shell: bash
         run: |
           set -euo pipefail
+          VERSION='${{ steps.pkg.outputs.version }}'
+          NOTES="releases/RELEASE-${VERSION}.md"
+
+          test -f "$NOTES"
 
           while IFS= read -r -d '' file; do
             php -l "$file"
@@ -78,61 +79,39 @@ jobs:
             python3 -m json.tool "$file" >/dev/null
           done < <(find all-star-varsity-jackets/blocks -type f -name 'block.json' -print0)
 
-          test -f "releases/RELEASE-${{ steps.pkg.outputs.version }}.md"
+          grep -q 'Update URI: https://github.com/All-Star-Embroidery/varsity-jackets' \
+            all-star-varsity-jackets/all-star-varsity-jackets.php
+          grep -q "RELEASE_REPO = 'All-Star-Embroidery/varsity-jackets'" \
+            all-star-varsity-jackets/includes/class-asevj-updater.php
 
-      - name: Build WordPress ZIP
+      - name: Build and validate WordPress ZIP
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION='${{ steps.pkg.outputs.version }}'
+          ZIP="$GITHUB_WORKSPACE/${{ steps.pkg.outputs.zip }}"
           BUILD='/tmp/asevj-plugin-build'
-          PLUGIN_FOLDER='all-star-varsity-jackets'
-          ZIP="$GITHUB_WORKSPACE/all-star-varsity-jackets-${VERSION}.zip"
+          PLUGIN='all-star-varsity-jackets'
 
           rm -rf "$BUILD" "$ZIP"
-          mkdir -p "$BUILD/$PLUGIN_FOLDER"
-          cp -R all-star-varsity-jackets/. "$BUILD/$PLUGIN_FOLDER/"
-
-          rm -rf "$BUILD/$PLUGIN_FOLDER/.git"
-          rm -rf "$BUILD/$PLUGIN_FOLDER/.github"
-          rm -rf "$BUILD/$PLUGIN_FOLDER/tests"
-          rm -rf "$BUILD/$PLUGIN_FOLDER/node_modules"
+          mkdir -p "$BUILD/$PLUGIN"
+          cp -R "$PLUGIN"/. "$BUILD/$PLUGIN/"
+          rm -rf "$BUILD/$PLUGIN/.git" "$BUILD/$PLUGIN/.github" "$BUILD/$PLUGIN/tests" "$BUILD/$PLUGIN/node_modules"
 
           cd "$BUILD"
-          zip -qr "$ZIP" "$PLUGIN_FOLDER"
-
-      - name: Validate WordPress ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          VERSION='${{ steps.pkg.outputs.version }}'
-          ZIP="all-star-varsity-jackets-${VERSION}.zip"
-
-          test -f "$ZIP"
+          zip -qr "$ZIP" "$PLUGIN"
           unzip -t "$ZIP" >/dev/null
-          unzip -l "$ZIP" | grep -q 'all-star-varsity-jackets/all-star-varsity-jackets.php'
 
           TOP_LEVEL=$(zipinfo -1 "$ZIP" | awk -F/ 'NF {print $1}' | sort -u)
-          test "$TOP_LEVEL" = 'all-star-varsity-jackets' || {
-            echo "Unexpected ZIP root(s): $TOP_LEVEL" >&2
-            exit 1
-          }
+          test "$TOP_LEVEL" = 'all-star-varsity-jackets'
+          test "$(zipinfo -1 "$ZIP" | grep -c '^all-star-varsity-jackets/all-star-varsity-jackets.php$')" -eq 1
 
-          COUNT_MAIN=$(zipinfo -1 "$ZIP" | grep -c '^all-star-varsity-jackets/all-star-varsity-jackets.php$')
-          test "$COUNT_MAIN" -eq 1
-
-          echo 'ZIP VALID:'
-          unzip -l "$ZIP"
-
-      - name: Create or update GitHub Release asset
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION='${{ steps.pkg.outputs.version }}'
           ZIP='${{ steps.pkg.outputs.zip }}'
           TAG='${{ steps.pkg.outputs.tag }}'
@@ -140,7 +119,10 @@ jobs:
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ZIP" --clobber
-            gh release edit "$TAG" --title "All Star Varsity Jackets v${VERSION}" --notes-file "$NOTES"
+            gh release edit "$TAG" \
+              --title "All Star Varsity Jackets v${VERSION}" \
+              --notes-file "$NOTES" \
+              --latest
           else
             EXTRA=()
             if [ '${{ steps.pkg.outputs.prerelease }}' = 'true' ]; then
@@ -150,85 +132,82 @@ jobs:
               --target main \
               --title "All Star Varsity Jackets v${VERSION}" \
               --notes-file "$NOTES" \
+              --latest \
               "${EXTRA[@]}"
           fi
 
-      - name: Verify published Release asset
+      - name: Verify published release asset
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION='${{ steps.pkg.outputs.version }}'
           ZIP='${{ steps.pkg.outputs.zip }}'
           TAG='${{ steps.pkg.outputs.tag }}'
-          EXPECTED_URL="https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/${TAG}/${ZIP}"
+          EXPECTED="https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/${TAG}/${ZIP}"
 
-          ASSET_URL=$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name == \"$ZIP\") | .url" | head -n1)
-          test -n "$ASSET_URL" || { echo 'Release asset was not found after upload.' >&2; exit 1; }
-
+          gh release view "$TAG" --json assets --jq ".assets[] | select(.name == \"$ZIP\") | .name" | grep -qx "$ZIP"
           rm -f /tmp/asevj-release-verify.zip
-          curl --fail --location --retry 3 --retry-delay 2 "$EXPECTED_URL" -o /tmp/asevj-release-verify.zip
+          curl --fail --location --retry 4 --retry-delay 2 "$EXPECTED" -o /tmp/asevj-release-verify.zip
           unzip -t /tmp/asevj-release-verify.zip >/dev/null
           zipinfo -1 /tmp/asevj-release-verify.zip | grep -q '^all-star-varsity-jackets/all-star-varsity-jackets.php$'
+          unzip -p /tmp/asevj-release-verify.zip all-star-varsity-jackets/includes/class-asevj-updater.php \
+            | grep -q 'All-Star-Embroidery/varsity-jackets'
 
-          echo "Verified release asset: $EXPECTED_URL"
-
-      - name: Update WordPress manifests after asset verification
+      - name: Update WordPress manifests
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION='${{ steps.pkg.outputs.version }}'
           ZIP='${{ steps.pkg.outputs.zip }}'
           TAG='${{ steps.pkg.outputs.tag }}'
 
           python3 - <<PY
-          import html
-          import json
-          import re
+          import html, json, re
           from datetime import datetime, timezone
           from pathlib import Path
 
           version = "$VERSION"
           tag = "$TAG"
           zip_name = "$ZIP"
-          notes_path = Path(f"releases/RELEASE-{version}.md")
-          notes = notes_path.read_text(encoding="utf-8")
+          notes = Path(f"releases/RELEASE-{version}.md").read_text(encoding="utf-8")
 
           bullets = []
-          in_changes = False
+          in_section = False
           for line in notes.splitlines():
-              if line.strip().lower() == "## changes":
-                  in_changes = True
+              heading = line.strip().lower()
+              if heading in {"## changes", "## highlights", "## what's new", "## what’s new"}:
+                  in_section = True
                   continue
-              if in_changes and line.startswith("## "):
+              if in_section and line.startswith("## "):
                   break
-              if in_changes and re.match(r"^[-*]\s+", line.strip()):
+              if in_section and re.match(r"^[-*]\s+", line.strip()):
                   bullets.append(re.sub(r"^[-*]\s+", "", line.strip()))
 
           changelog = f"<h4>{html.escape(version)}</h4>"
           if bullets:
               changelog += "<ul>" + "".join(f"<li>{html.escape(x)}</li>" for x in bullets) + "</ul>"
 
-          download_url = (
-              f"https://github.com/All-Star-Embroidery/varsity-jackets/"
-              f"releases/download/{tag}/{zip_name}"
-          )
+          download_url = f"https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/{tag}/{zip_name}"
+          homepage = "https://github.com/All-Star-Embroidery/varsity-jackets"
           now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S +0000")
+          description = (
+              "All Star Embroidery's WordPress/WooCommerce varsity jacket system with school browsing, "
+              "multi-style galleries, structured imports, responsive Gutenberg blocks, and WooCommerce product tools."
+          )
 
           latest = {
               "name": "All Star Varsity Jackets",
               "slug": "all-star-varsity-jackets",
               "version": version,
               "download_url": download_url,
-              "homepage": "https://github.com/All-Star-Embroidery/varsity-jackets",
+              "homepage": homepage,
               "requires": "6.4",
               "tested": "6.8",
               "requires_php": "8.0",
               "last_updated": now,
-              "description": "School-based varsity jacket collections with structured school imports, live Gutenberg blocks, gallery management, and optional WooCommerce products for All Star Embroidery.",
+              "description": description,
               "changelog": changelog,
           }
           Path("latest.json").write_text(json.dumps(latest, indent=2) + "\n", encoding="utf-8")
@@ -238,9 +217,9 @@ jobs:
               "name": f"All Star Varsity Jackets {version}",
               "prerelease": bool(re.search(r"(?:alpha|beta|rc)", version, re.I)),
               "package": download_url,
-              "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
+              "html_url": homepage,
               "published_at": now,
-              "body": "GitHub Release asset compatibility bridge. Newer builds use latest.json.",
+              "body": f"All Star Varsity Jackets {version}. See the GitHub Release notes for details.",
           }
           Path("update.json").write_text(json.dumps(legacy, indent=2) + "\n", encoding="utf-8")
           PY
@@ -252,11 +231,10 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
 
-      - name: Verify public manifest points to Release asset
+      - name: Verify public update manifest
         shell: bash
         run: |
           set -euo pipefail
-
           VERSION='${{ steps.pkg.outputs.version }}'
           TAG='${{ steps.pkg.outputs.tag }}'
           ZIP='${{ steps.pkg.outputs.zip }}'
@@ -269,9 +247,9 @@ jobs:
 
           python3 - <<PY
           import json
-          data=json.load(open('/tmp/latest.json'))
+          data = json.load(open('/tmp/latest.json'))
           assert data['version'] == "$VERSION", data
           assert data['download_url'] == "$EXPECTED", data
-          assert '/releases/download/' in data['download_url'], data
-          print('Manifest verified:', data['version'], data['download_url'])
+          assert 'All-Star-Embroidery/varsity-jackets' in data['homepage'], data
+          print('Update channel verified:', data['version'], data['download_url'])
           PY
