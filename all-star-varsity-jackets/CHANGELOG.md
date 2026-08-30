@@ -1,3 +1,12 @@
+## 1.0.6
+
+- Moved Available Customizations underneath the jacket style selector in the school sidebar.
+- Removed the separate customization grid item that was making Browse by School unnecessarily tall.
+- Gave the selected jacket gallery more horizontal room with a narrower, denser school/style sidebar.
+- Compacted customization typography, spacing, and dividers while retaining the full descriptions.
+- Made customization options horizontally swipeable on tablets/phones to avoid a tall mobile stack.
+- Tightened school-carousel and school-stage vertical spacing.
+
 ## 1.0.5
 
 - Clarified customer-facing Varsity Jackets prices as **Starting at** prices because customization may increase the final total.

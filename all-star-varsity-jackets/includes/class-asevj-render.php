@@ -563,6 +563,16 @@ final class ASEVJ_Render {
                         <div class="asevj-school-summary__meta"><span data-asevj-mascot-text><?php echo esc_html( $first['mascot'] ?: 'School' ); ?></span><span data-asevj-location><?php echo esc_html( $first['location'] ); ?></span></div>
                         <div class="asevj-style-picker-heading"><strong>CHOOSE A JACKET STYLE</strong><small>Select a style to update the gallery.</small></div>
                         <div class="asevj-style-picker" data-asevj-style-picker><?php echo self::render_style_selector_markup( $first['styles'] ); ?></div>
+                        <aside class="asevj-customizations asevj-customizations--sidebar" aria-label="Available customizations">
+                            <div class="asevj-customizations__heading"><span>AVAILABLE</span><strong>CUSTOMIZATIONS</strong></div>
+                            <div class="asevj-customization-list">
+                                <div><b>A</b><p><strong>Chenille Letters</strong><small>Classic 3D chenille letters in school colors.</small></p></div>
+                                <div><b>T</b><p><strong>Tackle Twill</strong><small>One-color or multi-color twill designs.</small></p></div>
+                                <div><b>✦</b><p><strong>Embroidery</strong><small>Names, mascots, and custom embroidery.</small></p></div>
+                                <div><b>◇</b><p><strong>Patches</strong><small>School, achievement, and custom patches.</small></p></div>
+                                <div><b>23</b><p><strong>Names &amp; Numerals</strong><small>Graduation year, jersey numbers, and personalization.</small></p></div>
+                            </div>
+                        </aside>
                     </aside>
 
                     <section class="asevj-style-showcase" data-asevj-style-showcase>
@@ -587,16 +597,6 @@ final class ASEVJ_Render {
                         </footer>
                     </section>
 
-                    <aside class="asevj-customizations" aria-label="Available customizations">
-                        <div class="asevj-customizations__heading"><span>AVAILABLE</span><strong>CUSTOMIZATIONS</strong></div>
-                        <div class="asevj-customization-list">
-                            <div><b>A</b><p><strong>Chenille Letters</strong><small>Classic 3D chenille letters in school colors.</small></p></div>
-                            <div><b>T</b><p><strong>Tackle Twill</strong><small>One-color or multi-color twill designs.</small></p></div>
-                            <div><b>✦</b><p><strong>Embroidery</strong><small>Names, mascots, and custom embroidery.</small></p></div>
-                            <div><b>◇</b><p><strong>Patches</strong><small>School, achievement, and custom patches.</small></p></div>
-                            <div><b>23</b><p><strong>Names &amp; Numerals</strong><small>Graduation year, jersey numbers, and personalization.</small></p></div>
-                        </div>
-                    </aside>
                 </div>
 
                 <div class="asevj-no-results" data-asevj-no-results hidden>No schools match those filters.</div>
