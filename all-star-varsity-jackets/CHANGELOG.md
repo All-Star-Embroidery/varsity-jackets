@@ -1,3 +1,10 @@
+## 1.0.7
+
+- Reduced the inline Browse by School gallery height to keep more of the selector in one viewport.
+- Slightly reduced supporting gallery tiles while preserving image containment.
+- Added responsive gallery caps for laptop, tablet, and mobile widths.
+- Left the jacket-detail popup sizing unchanged.
+
 ## 1.0.6
 
 - Moved Available Customizations underneath the jacket style selector in the school sidebar.
