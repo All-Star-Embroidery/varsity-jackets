@@ -141,7 +141,10 @@
         if (style.priceHtml) {
             var price = document.createElement('div');
             price.className = 'asevj-modal__price';
-            price.innerHTML = style.priceHtml;
+            price.appendChild(text('small', 'STARTING AT'));
+            var modalPriceValue = document.createElement('strong');
+            modalPriceValue.innerHTML = style.priceHtml;
+            price.appendChild(modalPriceValue);
             details.appendChild(price);
 
             stickyPrice.innerHTML = '<small>STARTING AT</small><strong>' + style.priceHtml + '</strong>';

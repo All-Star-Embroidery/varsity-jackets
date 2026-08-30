@@ -1,3 +1,10 @@
+## 1.0.5
+
+- Clarified customer-facing Varsity Jackets prices as **Starting at** prices because customization may increase the final total.
+- Added the missing **Starting at** label above the jacket-detail popup price.
+- Kept the existing Starting at treatment in style cards, selected-style pricing, and the sticky customization bar.
+- Added responsive modal price-label styling.
+
 ## 1.0.3
 
 - Fixed jacket detail/gallery images overflowing their intended media area on tablets and narrow portrait screens.
