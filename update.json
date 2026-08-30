@@ -1,9 +1,9 @@
 {
-  "version": "1.0.5",
-  "name": "All Star Varsity Jackets 1.0.5",
+  "version": "1.0.6",
+  "name": "All Star Varsity Jackets 1.0.6",
   "prerelease": false,
-  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.5/all-star-varsity-jackets-1.0.5.zip",
+  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.6/all-star-varsity-jackets-1.0.6.zip",
   "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
-  "published_at": "2026-08-30 17:56:43 +0000",
-  "body": "Clarifies varsity-jacket base prices as Starting at prices."
+  "published_at": "2026-08-30 18:22:22 +0000",
+  "body": "Compact Browse by School layout."
 }

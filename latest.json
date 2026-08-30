@@ -1,13 +1,13 @@
 {
   "name": "All Star Varsity Jackets",
   "slug": "all-star-varsity-jackets",
-  "version": "1.0.5",
-  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.5/all-star-varsity-jackets-1.0.5.zip",
+  "version": "1.0.6",
+  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.6/all-star-varsity-jackets-1.0.6.zip",
   "homepage": "https://github.com/All-Star-Embroidery/varsity-jackets",
   "requires": "6.4",
   "tested": "6.8",
   "requires_php": "8.0",
-  "last_updated": "2026-08-30 17:56:43 +0000",
+  "last_updated": "2026-08-30 18:22:22 +0000",
   "description": "All Star Embroidery's WordPress/WooCommerce varsity jacket system with school browsing, multiple jacket styles per school, responsive image galleries, structured ZIP/CSV imports, live Gutenberg blocks, WooCommerce product tools, and organization-owned automatic updates.",
-  "changelog": "<h4>1.0.5</h4><ul><li>Clarified customer-facing jacket prices as Starting at prices.</li><li>Added Starting at above the jacket-detail popup price.</li><li>Preserved consistent starting-price language across style cards, selected-style pricing, and sticky customization actions.</li></ul>"
+  "changelog": "<h4>1.0.6</h4><ul><li>Moved Available Customizations beneath the jacket style selector.</li><li>Removed the extra customization grid row and gave the gallery more horizontal room.</li><li>Compacted Browse by School spacing on desktop, tablet, and mobile.</li></ul>"
 }
