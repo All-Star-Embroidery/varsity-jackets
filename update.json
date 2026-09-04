@@ -1,9 +1,9 @@
 {
-  "version": "1.0.9",
-  "name": "All Star Varsity Jackets 1.0.9",
+  "version": "1.0.10",
+  "name": "All Star Varsity Jackets 1.0.10",
   "prerelease": false,
-  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.9/all-star-varsity-jackets-1.0.9.zip",
+  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.10/all-star-varsity-jackets-1.0.10.zip",
   "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
-  "published_at": "2026-09-04 02:02:26 +0000",
-  "body": "Dedicated Varsity Jacket product-template routing and editable shared layout."
+  "published_at": "2026-09-04 02:25:06 +0000",
+  "body": "Responsive full-image and product-page visual polish."
 }

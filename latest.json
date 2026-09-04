@@ -1,13 +1,13 @@
 {
   "name": "All Star Varsity Jackets",
   "slug": "all-star-varsity-jackets",
-  "version": "1.0.9",
-  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.9/all-star-varsity-jackets-1.0.9.zip",
+  "version": "1.0.10",
+  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.10/all-star-varsity-jackets-1.0.10.zip",
   "homepage": "https://github.com/All-Star-Embroidery/varsity-jackets",
   "requires": "6.4",
   "tested": "6.8",
   "requires_php": "8.0",
-  "last_updated": "2026-09-04 02:02:26 +0000",
+  "last_updated": "2026-09-04 02:25:06 +0000",
   "description": "All Star Embroidery's WordPress/WooCommerce varsity jacket system with dedicated jacket product pages, school browsing, galleries, imports, and WooCommerce product tools.",
-  "changelog": "<h4>1.0.9</h4><ul><li>Automatically routes linked varsity products to the dedicated jacket product page.</li><li>Adds an editable shared Product Page Template in Gutenberg.</li><li>Leaves normal WooCommerce products untouched and disables online purchase for linked jackets.</li></ul>"
+  "changelog": "<h4>1.0.10</h4><ul><li>Keeps the entire jacket image visible across responsive sizes.</li><li>Sharpens product-page surfaces to 3\u20134px radii.</li><li>Removes soft card/button shadows.</li></ul>"
 }
