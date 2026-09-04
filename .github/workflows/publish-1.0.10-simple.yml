@@ -1,0 +1,60 @@
+name: Publish 1.0.10
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-1.0.10-simple.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Apply update
+        run: python3 releases/build-1.0.10.py
+      - name: Validate
+        run: |
+          set -euo pipefail
+          grep -q '^ \* Version: 1.0.10$' all-star-varsity-jackets/all-star-varsity-jackets.php
+          while IFS= read -r -d '' file; do php -l "$file"; done < <(find all-star-varsity-jackets -type f -name '*.php' -print0)
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find all-star-varsity-jackets -type f -name '*.js' -print0)
+          while IFS= read -r -d '' file; do python3 -m json.tool "$file" >/dev/null; done < <(find all-star-varsity-jackets/blocks -type f -name 'block.json' -print0)
+      - name: Commit source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add all-star-varsity-jackets
+          git commit -m 'release: product page polish 1.0.10' || true
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Build ZIP
+        run: |
+          rm -rf /tmp/asevj110 all-star-varsity-jackets-1.0.10.zip
+          mkdir -p /tmp/asevj110/all-star-varsity-jackets
+          cp -R all-star-varsity-jackets/. /tmp/asevj110/all-star-varsity-jackets/
+          cd /tmp/asevj110
+          zip -qr "$GITHUB_WORKSPACE/all-star-varsity-jackets-1.0.10.zip" all-star-varsity-jackets
+          cd "$GITHUB_WORKSPACE"
+          unzip -t all-star-varsity-jackets-1.0.10.zip >/dev/null
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create v1.0.10 all-star-varsity-jackets-1.0.10.zip --target main --title 'All Star Varsity Jackets v1.0.10' --notes-file releases/RELEASE-1.0.10.md --latest
+      - name: Update manifests
+        run: |
+          python3 -c "import json; from datetime import datetime,timezone; from pathlib import Path; now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S +0000'); url='https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.10/all-star-varsity-jackets-1.0.10.zip'; home='https://github.com/All-Star-Embroidery/varsity-jackets'; d={'name':'All Star Varsity Jackets','slug':'all-star-varsity-jackets','version':'1.0.10','download_url':url,'homepage':home,'requires':'6.4','tested':'6.8','requires_php':'8.0','last_updated':now,'description':\"All Star Embroidery's WordPress/WooCommerce varsity jacket system with dedicated jacket product pages, school browsing, galleries, imports, and WooCommerce product tools.\",'changelog':'<h4>1.0.10</h4><ul><li>Keeps the entire jacket image visible across responsive sizes.</li><li>Sharpens product-page surfaces to 3–4px radii.</li><li>Removes soft card/button shadows.</li></ul>'}; Path('latest.json').write_text(json.dumps(d,indent=2)+'\\n'); Path('update.json').write_text(json.dumps({'version':'1.0.10','name':'All Star Varsity Jackets 1.0.10','prerelease':False,'package':url,'html_url':home,'published_at':now,'body':'Responsive full-image and product-page visual polish.'},indent=2)+'\\n')"
+          git add latest.json update.json
+          git commit -m 'release: point updater to 1.0.10'
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: Verify
+        run: |
+          sleep 3
+          curl -fsSL "https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json?run=$GITHUB_RUN_ID" | grep -q '"version": "1.0.10"'
+          curl -fsI -L 'https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.10/all-star-varsity-jackets-1.0.10.zip' >/dev/null
