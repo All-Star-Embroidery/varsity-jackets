@@ -1,3 +1,10 @@
+## 1.0.13
+
+- Kept product-page jacket photography in Scale to fit mode while capping it to a responsive medium size.
+- Added viewport-aware maximum image heights for desktop, tablet, mobile, and short laptop windows.
+- Preserved full-image visibility with no cropping and no fixed gallery-height controls.
+- Kept the Jacket Image Size control for optional further reduction.
+
 ## 1.0.12
 
 - Replaced fixed desktop/mobile product-gallery heights with intrinsic Scale to fit behavior.
