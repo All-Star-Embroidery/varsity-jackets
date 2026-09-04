@@ -1,3 +1,16 @@
+## 1.0.10
+
+- Ensured the full jacket image always remains visible at every responsive size.
+- Capped jacket image scaling at 100% to prevent viewport cropping.
+- Sharpened the product-page design to 3–4px radii and removed soft SaaS-style shadows.
+- Replaced floating-card styling with hairline borders and flatter retail/document surfaces.
+
+## 1.0.9
+
+- Added automatic routing of linked varsity WooCommerce products to the dedicated jacket product template.
+- Added the editable shared Product Page Template.
+- Disabled online purchasing for linked varsity jacket products while leaving normal WooCommerce products unchanged.
+
 ## 1.0.8
 
 - Added the Varsity Jacket Product Page Gutenberg block.

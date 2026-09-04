@@ -196,10 +196,10 @@ final class ASEVJ_Product_Page {
         $padding = min( 110, max( 18, absint( $attributes['sectionPadding'] ?? 42 ) ) );
         $info_padding = min( 80, max( 18, absint( $attributes['infoPadding'] ?? 38 ) ) );
         $gap = min( 72, max( 12, absint( $attributes['columnGap'] ?? 34 ) ) );
-        $radius = min( 36, max( 0, absint( $attributes['borderRadius'] ?? 10 ) ) );
+        $radius = min( 4, max( 0, absint( $attributes['borderRadius'] ?? 4 ) ) );
         $gallery_height = min( 760, max( 300, absint( $attributes['galleryHeight'] ?? 560 ) ) );
         $mobile_gallery_height = min( 560, max( 220, absint( $attributes['mobileGalleryHeight'] ?? 360 ) ) );
-        $image_scale = min( 125, max( 70, absint( $attributes['imageScale'] ?? 100 ) ) );
+        $image_scale = min( 100, max( 70, absint( $attributes['imageScale'] ?? 100 ) ) );
 
         $eyebrow = sanitize_text_field( (string) ( $attributes['eyebrow'] ?? 'CUSTOM VARSITY JACKET' ) );
         $price_label = sanitize_text_field( (string) ( $attributes['priceLabel'] ?? 'STARTING AT' ) );
