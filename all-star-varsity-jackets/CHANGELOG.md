@@ -1,3 +1,10 @@
+## 1.0.12
+
+- Replaced fixed desktop/mobile product-gallery heights with intrinsic Scale to fit behavior.
+- Jacket images now follow their natural aspect ratio and resize automatically with the page.
+- Removed obsolete gallery-height controls from the Product Page block while safely ignoring previously saved values.
+- Preserved the existing image-size control and full-image containment.
+
 ## 1.0.11
 
 - Replaced the block-theme jacket routing that bypassed the Site Editor with a registered WordPress block template.

@@ -123,8 +123,7 @@
                         el(RangeControl, { label: __('Info panel padding', 'all-star-varsity-jackets'), value: a.infoPadding || 38, min: 18, max: 80, step: 2, onChange: function (value) { set(props, 'infoPadding', value); } }),
                         el(RangeControl, { label: __('Column gap', 'all-star-varsity-jackets'), value: a.columnGap || 34, min: 12, max: 72, step: 2, onChange: function (value) { set(props, 'columnGap', value); } }),
                         el(RangeControl, { label: __('Corner radius', 'all-star-varsity-jackets'), value: (typeof a.borderRadius === 'number' ? a.borderRadius : 4), min: 0, max: 4, step: 1, onChange: function (value) { set(props, 'borderRadius', value); } }),
-                        el(RangeControl, { label: __('Desktop gallery height', 'all-star-varsity-jackets'), value: a.galleryHeight || 560, min: 300, max: 760, step: 10, onChange: function (value) { set(props, 'galleryHeight', value); } }),
-                        el(RangeControl, { label: __('Mobile gallery height', 'all-star-varsity-jackets'), value: a.mobileGalleryHeight || 360, min: 220, max: 560, step: 10, onChange: function (value) { set(props, 'mobileGalleryHeight', value); } }),
+                        el(Notice, { status: 'info', isDismissible: false }, __('Gallery sizing: Scale to fit. Jacket photos keep their natural aspect ratio and resize automatically with the page.', 'all-star-varsity-jackets')),
                         el(RangeControl, { label: __('Jacket image size', 'all-star-varsity-jackets'), help: __('100% is the largest safe size and always keeps the full jacket visible.', 'all-star-varsity-jackets'), value: a.imageScale || 100, min: 70, max: 100, step: 5, onChange: function (value) { set(props, 'imageScale', value); } })
                     ),
 

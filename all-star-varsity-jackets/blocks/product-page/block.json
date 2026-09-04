@@ -2,7 +2,7 @@
   "$schema": "https://schemas.wp.org/trunk/block.json",
   "apiVersion": 3,
   "name": "all-star-varsity-jackets/product-page",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "title": "Varsity Jacket Product Page",
   "category": "all-star-embroidery",
   "icon": "products",
@@ -154,6 +154,9 @@
     ]
   },
   "editorScript": "file:./editor.js",
-  "style": "file:./style.css",
+  "style": [
+    "file:./style.css",
+    "file:./fit.css"
+  ],
   "viewScript": "file:./view.js"
 }
