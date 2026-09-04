@@ -1,3 +1,10 @@
+## 1.0.8
+
+- Added the Varsity Jacket Product Page Gutenberg block.
+- Added automatic linked-product detection, gallery, school/style identity, starting-price clarification, jacket details, customization options, and call-to-order CTA.
+- Added extensive product-page layout, content, color, visibility, spacing, image-scale, and responsive controls.
+- Added live Gutenberg preview plus responsive thumbnail gallery behavior.
+
 ## 1.0.7
 
 - Reduced the inline Browse by School gallery height to keep more of the selector in one viewport.
