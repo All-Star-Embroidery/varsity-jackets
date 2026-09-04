@@ -1,0 +1,148 @@
+name: Publish 1.0.12 Scale To Fit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-1.0.12-fixed.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Finalize 1.0.12 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          root = Path('all-star-varsity-jackets')
+          main = root / 'all-star-varsity-jackets.php'
+          s = main.read_text(encoding='utf-8')
+          s = s.replace('Version: 1.0.11', 'Version: 1.0.12')
+          s = s.replace("define( 'ASEVJ_VERSION', '1.0.11' );", "define( 'ASEVJ_VERSION', '1.0.12' );")
+          main.write_text(s, encoding='utf-8')
+          for p in (root / 'blocks').glob('*/block.json'):
+              data = json.loads(p.read_text(encoding='utf-8'))
+              data['version'] = '1.0.12'
+              if data.get('name') == 'all-star-varsity-jackets/product-page':
+                  data['style'] = ['file:./style.css', 'file:./fit.css']
+              p.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          editor = root / 'blocks/product-page/editor.js'
+          e = editor.read_text(encoding='utf-8')
+          desktop = "                        el(RangeControl, { label: __('Desktop gallery height', 'all-star-varsity-jackets'), value: a.galleryHeight || 560, min: 300, max: 760, step: 10, onChange: function (value) { set(props, 'galleryHeight', value); } }),\n"
+          mobile = "                        el(RangeControl, { label: __('Mobile gallery height', 'all-star-varsity-jackets'), value: a.mobileGalleryHeight || 360, min: 220, max: 560, step: 10, onChange: function (value) { set(props, 'mobileGalleryHeight', value); } }),\n"
+          if desktop not in e or mobile not in e:
+              raise SystemExit('Expected gallery-height controls not found')
+          notice = "                        el(Notice, { status: 'info', isDismissible: false }, __('Gallery sizing: Scale to fit. Jacket photos keep their natural aspect ratio and resize automatically with the page.', 'all-star-varsity-jackets')),\n"
+          e = e.replace(desktop, notice).replace(mobile, '')
+          editor.write_text(e, encoding='utf-8')
+          changelog = root / 'CHANGELOG.md'
+          old = changelog.read_text(encoding='utf-8')
+          if not old.startswith('## 1.0.12'):
+              entry = '## 1.0.12\n\n- Replaced fixed desktop/mobile product-gallery heights with intrinsic Scale to fit behavior.\n- Jacket images now follow their natural aspect ratio and resize automatically with the page.\n- Removed obsolete gallery-height controls from the Product Page block while safely ignoring previously saved values.\n- Preserved the existing image-size control and full-image containment.\n\n'
+              changelog.write_text(entry + old, encoding='utf-8')
+          readme = root / 'readme.txt'
+          if readme.exists():
+              rt = readme.read_text(encoding='utf-8')
+              rt = re.sub(r'Stable tag:\s*[^\n]+', 'Stable tag: 1.0.12', rt)
+              if '= 1.0.12 =' not in rt:
+                  rt += '\n= 1.0.12 =\n* Product-page jacket galleries now scale to fit using the image natural aspect ratio instead of fixed pixel heights.\n* Removed obsolete desktop/mobile gallery-height controls.\n'
+              readme.write_text(rt, encoding='utf-8')
+          PY
+
+      - name: Validate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^ \* Version: 1.0.12$' all-star-varsity-jackets/all-star-varsity-jackets.php
+          grep -q "define( 'ASEVJ_VERSION', '1.0.12' );" all-star-varsity-jackets/all-star-varsity-jackets.php
+          grep -q 'intrinsic scale-to-fit product gallery' all-star-varsity-jackets/blocks/product-page/fit.css
+          ! grep -q 'Desktop gallery height' all-star-varsity-jackets/blocks/product-page/editor.js
+          ! grep -q 'Mobile gallery height' all-star-varsity-jackets/blocks/product-page/editor.js
+          python3 - <<'PY'
+          import json
+          p='all-star-varsity-jackets/blocks/product-page/block.json'
+          data=json.load(open(p))
+          assert data['version']=='1.0.12'
+          assert 'file:./fit.css' in data['style']
+          PY
+          while IFS= read -r -d '' file; do php -l "$file"; done < <(find all-star-varsity-jackets -type f -name '*.php' -print0)
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find all-star-varsity-jackets -type f -name '*.js' -print0)
+          while IFS= read -r -d '' file; do python3 -m json.tool "$file" >/dev/null; done < <(find all-star-varsity-jackets/blocks -type f -name 'block.json' -print0)
+
+      - name: Commit source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add all-star-varsity-jackets
+          git commit -m 'release: scale-to-fit product gallery in 1.0.12' || true
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Build WordPress ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/asevj112 all-star-varsity-jackets-1.0.12.zip
+          mkdir -p /tmp/asevj112/all-star-varsity-jackets
+          cp -R all-star-varsity-jackets/. /tmp/asevj112/all-star-varsity-jackets/
+          cd /tmp/asevj112
+          zip -qr "$GITHUB_WORKSPACE/all-star-varsity-jackets-1.0.12.zip" all-star-varsity-jackets
+          cd "$GITHUB_WORKSPACE"
+          unzip -t all-star-varsity-jackets-1.0.12.zip >/dev/null
+          zipinfo -1 all-star-varsity-jackets-1.0.12.zip | grep -q '^all-star-varsity-jackets/all-star-varsity-jackets.php$'
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh release create v1.0.12 all-star-varsity-jackets-1.0.12.zip --target main --title 'All Star Varsity Jackets v1.0.12' --notes-file releases/RELEASE-1.0.12.md --latest
+
+      - name: Update WordPress manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S +0000')
+          url = 'https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.12/all-star-varsity-jackets-1.0.12.zip'
+          homepage = 'https://github.com/All-Star-Embroidery/varsity-jackets'
+          latest = {'name':'All Star Varsity Jackets','slug':'all-star-varsity-jackets','version':'1.0.12','download_url':url,'homepage':homepage,'requires':'6.4','tested':'6.8','requires_php':'8.0','last_updated':now,'description':"All Star Embroidery's WordPress/WooCommerce varsity jacket system with theme-compatible dedicated jacket product pages, school browsing, galleries, imports, and WooCommerce product tools.",'changelog':'<h4>1.0.12</h4><ul><li>Product-page jacket images now scale to fit naturally instead of using fixed pixel heights.</li><li>Gallery height follows the selected image aspect ratio across desktop, tablet, and mobile.</li><li>Removed obsolete desktop/mobile gallery-height controls.</li></ul>'}
+          Path('latest.json').write_text(json.dumps(latest, indent=2)+'\n', encoding='utf-8')
+          legacy = {'version':'1.0.12','name':'All Star Varsity Jackets 1.0.12','prerelease':False,'package':url,'html_url':homepage,'published_at':now,'body':'Responsive scale-to-fit product gallery.'}
+          Path('update.json').write_text(json.dumps(legacy, indent=2)+'\n', encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add latest.json update.json
+          git commit -m 'release: point updater to 1.0.12'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Verify public update channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 3
+          curl --fail --location --retry 5 --retry-delay 2 "https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json?run=${GITHUB_RUN_ID}" -o /tmp/latest.json
+          python3 - <<'PY'
+          import json
+          data=json.load(open('/tmp/latest.json'))
+          assert data['version']=='1.0.12', data
+          assert data['download_url'].endswith('/v1.0.12/all-star-varsity-jackets-1.0.12.zip'), data
+          PY
+          curl --fail --location --retry 5 --retry-delay 2 'https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.12/all-star-varsity-jackets-1.0.12.zip' -o /tmp/asevj112.zip
+          unzip -t /tmp/asevj112.zip >/dev/null
