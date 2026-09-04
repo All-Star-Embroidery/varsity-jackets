@@ -64,6 +64,23 @@ final class ASEVJ_Post_Types {
             'capability_type'     => 'post',
             'map_meta_cap'        => true,
         ] );
+
+        register_post_type( 'asevj_template', [
+            'labels' => [
+                'name'          => 'Product Page Template',
+                'singular_name' => 'Product Page Template',
+                'edit_item'     => 'Edit Varsity Jacket Product Page',
+                'menu_name'     => 'Product Page Template',
+            ],
+            'public'              => false,
+            'show_ui'             => true,
+            'show_in_menu'        => 'asevj-dashboard',
+            'show_in_rest'        => true,
+            'supports'            => [ 'title', 'editor', 'revisions' ],
+            'hierarchical'        => false,
+            'capability_type'     => 'post',
+            'map_meta_cap'        => true,
+        ] );
     }
 
     public function disable_block_editor_for_data_types( bool $use_block_editor, string $post_type ): bool {
