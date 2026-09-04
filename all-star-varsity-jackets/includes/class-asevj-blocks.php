@@ -46,6 +46,7 @@ final class ASEVJ_Blocks {
             'browser'         => [ ASEVJ_Render::class, 'render_browser' ],
             'benefits'        => [ ASEVJ_Render::class, 'render_benefits' ],
             'full-experience' => [ ASEVJ_Render::class, 'render_full' ],
+            'product-page'    => [ ASEVJ_Product_Page::class, 'render' ],
         ];
 
         foreach ( $blocks as $folder => $callback ) {
