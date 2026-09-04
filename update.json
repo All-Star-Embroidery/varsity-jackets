@@ -1,9 +1,9 @@
 {
-  "version": "1.0.11",
-  "name": "All Star Varsity Jackets 1.0.11",
+  "version": "1.0.12",
+  "name": "All Star Varsity Jackets 1.0.12",
   "prerelease": false,
-  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.11/all-star-varsity-jackets-1.0.11.zip",
+  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.12/all-star-varsity-jackets-1.0.12.zip",
   "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
-  "published_at": "2026-09-04 02:33:00 +0000",
-  "body": "Theme-compatible Site Editor routing for jacket-only WooCommerce product pages."
+  "published_at": "2026-09-04 02:50:31 +0000",
+  "body": "Responsive scale-to-fit product gallery."
 }
