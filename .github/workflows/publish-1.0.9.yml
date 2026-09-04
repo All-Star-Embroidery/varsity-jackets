@@ -1,0 +1,142 @@
+name: Publish 1.0.9 Jacket Template Routing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-1.0.9.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Finalize source metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          root = Path('all-star-varsity-jackets')
+          for block_json in (root / 'blocks').glob('*/block.json'):
+              data = json.loads(block_json.read_text(encoding='utf-8'))
+              data['version'] = '1.0.9'
+              block_json.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+          readme = root / 'readme.txt'
+          if readme.exists():
+              text = readme.read_text(encoding='utf-8')
+              text = re.sub(r'Stable tag:\s*[^\n]+', 'Stable tag: 1.0.9', text)
+              if '= 1.0.9 =' not in text:
+                  text += '\n= 1.0.9 =\n* Added automatic Varsity Jacket product-template routing and an editable shared Product Page Template.\n* Linked varsity products are non-purchasable online and use the call-to-order experience.\n'
+              readme.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^ \* Version: 1.0.9$' all-star-varsity-jackets/all-star-varsity-jackets.php
+          grep -q "define( 'ASEVJ_VERSION', '1.0.9' );" all-star-varsity-jackets/all-star-varsity-jackets.php
+          grep -q 'template_include' all-star-varsity-jackets/includes/class-asevj-woocommerce.php
+          grep -q 'asevj_template' all-star-varsity-jackets/includes/class-asevj-post-types.php
+          test -f all-star-varsity-jackets/templates/single-product-varsity-jacket.php
+          while IFS= read -r -d '' file; do php -l "$file"; done < <(find all-star-varsity-jackets -type f -name '*.php' -print0)
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find all-star-varsity-jackets -type f -name '*.js' -print0)
+          while IFS= read -r -d '' file; do python3 -m json.tool "$file" >/dev/null; done < <(find all-star-varsity-jackets/blocks -type f -name 'block.json' -print0)
+
+      - name: Commit production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add all-star-varsity-jackets
+          git commit -m 'release: finalize 1.0.9 source' || true
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Build WordPress ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/asevj109 all-star-varsity-jackets-1.0.9.zip
+          mkdir -p /tmp/asevj109/all-star-varsity-jackets
+          cp -R all-star-varsity-jackets/. /tmp/asevj109/all-star-varsity-jackets/
+          cd /tmp/asevj109
+          zip -qr "$GITHUB_WORKSPACE/all-star-varsity-jackets-1.0.9.zip" all-star-varsity-jackets
+          cd "$GITHUB_WORKSPACE"
+          unzip -t all-star-varsity-jackets-1.0.9.zip >/dev/null
+          zipinfo -1 all-star-varsity-jackets-1.0.9.zip | grep -q '^all-star-varsity-jackets/all-star-varsity-jackets.php$'
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v1.0.9 all-star-varsity-jackets-1.0.9.zip --target main --title 'All Star Varsity Jackets v1.0.9' --notes-file releases/RELEASE-1.0.9.md --latest
+
+      - name: Update WordPress manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S +0000')
+          url = 'https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.9/all-star-varsity-jackets-1.0.9.zip'
+          homepage = 'https://github.com/All-Star-Embroidery/varsity-jackets'
+          latest = {
+              'name': 'All Star Varsity Jackets',
+              'slug': 'all-star-varsity-jackets',
+              'version': '1.0.9',
+              'download_url': url,
+              'homepage': homepage,
+              'requires': '6.4',
+              'tested': '6.8',
+              'requires_php': '8.0',
+              'last_updated': now,
+              'description': "All Star Embroidery's WordPress/WooCommerce varsity jacket system with dedicated jacket product pages, school browsing, galleries, imports, and WooCommerce product tools.",
+              'changelog': '<h4>1.0.9</h4><ul><li>Automatically routes linked varsity products to the dedicated jacket product page.</li><li>Adds an editable shared Product Page Template in Gutenberg.</li><li>Leaves normal WooCommerce products untouched and disables online purchase for linked jackets.</li></ul>'
+          }
+          Path('latest.json').write_text(json.dumps(latest, indent=2) + '\n', encoding='utf-8')
+          legacy = {
+              'version': '1.0.9',
+              'name': 'All Star Varsity Jackets 1.0.9',
+              'prerelease': False,
+              'package': url,
+              'html_url': homepage,
+              'published_at': now,
+              'body': 'Dedicated Varsity Jacket product-template routing and editable shared layout.'
+          }
+          Path('update.json').write_text(json.dumps(legacy, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add latest.json update.json
+          git commit -m 'release: point updater to 1.0.9'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Verify public update channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 3
+          curl --fail --location --retry 5 --retry-delay 2 "https://raw.githubusercontent.com/All-Star-Embroidery/varsity-jackets/main/latest.json?run=${GITHUB_RUN_ID}" -o /tmp/latest.json
+          python3 - <<'PY'
+          import json
+          data = json.load(open('/tmp/latest.json'))
+          assert data['version'] == '1.0.9', data
+          assert data['download_url'].endswith('/v1.0.9/all-star-varsity-jackets-1.0.9.zip'), data
+          PY
+          curl --fail --location --retry 5 --retry-delay 2 'https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.9/all-star-varsity-jackets-1.0.9.zip' -o /tmp/asevj109.zip
+          unzip -t /tmp/asevj109.zip >/dev/null
