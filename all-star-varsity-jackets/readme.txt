@@ -3,7 +3,7 @@ Contributors: allstar
 Tags: varsity jackets, schools, embroidery, woocommerce, gutenberg
 Requires at least: 6.4
 Requires PHP: 8.0
-Stable tag: 1.0.13
+Stable tag: 1.0.14
 
 School-based varsity jacket collections for All Star Embroidery with multiple styles per school, live Gutenberg previews, structured school imports, and optional WooCommerce products.
 
@@ -95,3 +95,7 @@ The plugin uses the organization-owned public latest.json manifest and GitHub Re
 
 = 1.0.13 =
 * Keeps full jacket images visible while capping the product gallery to a responsive medium viewport size.
+
+= 1.0.14 =
+* School name is now the primary product heading with the style as a subtitle.
+* Adds a same-school jacket style switcher to linked product pages.

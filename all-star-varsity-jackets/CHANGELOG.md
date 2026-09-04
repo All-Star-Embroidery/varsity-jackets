@@ -1,3 +1,10 @@
+## 1.0.14
+
+- Made the school name the primary product-page heading and moved the jacket style name to a smaller subtitle.
+- Added an automatic same-school Jacket Styles switcher below mascot/location metadata when multiple linked styles exist.
+- Current style is clearly marked; alternate styles link directly to their dedicated varsity product pages.
+- Added block controls for the style-switcher label and visibility.
+
 ## 1.0.13
 
 - Kept product-page jacket photography in Scale to fit mode while capping it to a responsive medium size.

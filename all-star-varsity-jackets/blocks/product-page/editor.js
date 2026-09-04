@@ -43,6 +43,7 @@
     var attributes = {
         previewProductId: { type: 'number', default: 0 },
         eyebrow: { type: 'string', default: 'CUSTOM VARSITY JACKET' },
+        styleSwitcherLabel: { type: 'string', default: 'JACKET STYLES' },
         priceLabel: { type: 'string', default: 'STARTING AT' },
         priceNote: { type: 'string', default: 'Base jacket price. Lettering, patches, embroidery, names, numerals, and other customizations are additional.' },
         customizationsHeading: { type: 'string', default: 'Available Customizations' },
@@ -58,6 +59,7 @@
         showCustomizations: { type: 'boolean', default: true },
         showProcess: { type: 'boolean', default: true },
         showSchoolMeta: { type: 'boolean', default: true },
+        showStyleSwitcher: { type: 'boolean', default: true },
         fullBleed: { type: 'boolean', default: true },
         maxWidth: { type: 'number', default: 1380 },
         sectionPadding: { type: 'number', default: 42 },
@@ -93,6 +95,7 @@
                         el(Notice, { status: 'info', isDismissible: false }, __('On a real product page this block automatically uses the linked varsity jacket product. In the editor it previews the first linked jacket unless you enter a WooCommerce product ID below.', 'all-star-varsity-jackets')),
                         el(TextControl, { label: __('Preview WooCommerce product ID', 'all-star-varsity-jackets'), type: 'number', value: a.previewProductId || '', onChange: function (value) { set(props, 'previewProductId', parseInt(value || '0', 10) || 0); } }),
                         el(TextControl, { label: __('Eyebrow', 'all-star-varsity-jackets'), value: a.eyebrow || '', onChange: function (value) { set(props, 'eyebrow', value); } }),
+                        el(TextControl, { label: __('Style switcher label', 'all-star-varsity-jackets'), value: a.styleSwitcherLabel || 'JACKET STYLES', onChange: function (value) { set(props, 'styleSwitcherLabel', value); } }),
                         el(TextControl, { label: __('Price label', 'all-star-varsity-jackets'), value: a.priceLabel || '', onChange: function (value) { set(props, 'priceLabel', value); } }),
                         el(TextareaControl, { label: __('Price clarification', 'all-star-varsity-jackets'), help: __('Use this to make it unmistakable that customization costs extra.', 'all-star-varsity-jackets'), value: a.priceNote || '', onChange: function (value) { set(props, 'priceNote', value); } }),
                         el(TextControl, { label: __('Order heading', 'all-star-varsity-jackets'), value: a.orderHeading || '', onChange: function (value) { set(props, 'orderHeading', value); } }),
@@ -111,6 +114,7 @@
 
                     el(PanelBody, { title: __('Visibility', 'all-star-varsity-jackets'), initialOpen: false },
                         el(ToggleControl, { label: __('Show school / mascot / location', 'all-star-varsity-jackets'), checked: a.showSchoolMeta !== false, onChange: function (value) { set(props, 'showSchoolMeta', value); } }),
+                        el(ToggleControl, { label: __('Show other styles for this school', 'all-star-varsity-jackets'), checked: a.showStyleSwitcher !== false, onChange: function (value) { set(props, 'showStyleSwitcher', value); } }),
                         el(ToggleControl, { label: __('Show jacket description', 'all-star-varsity-jackets'), checked: a.showDescription !== false, onChange: function (value) { set(props, 'showDescription', value); } }),
                         el(ToggleControl, { label: __('Show jacket features', 'all-star-varsity-jackets'), checked: a.showFeatures !== false, onChange: function (value) { set(props, 'showFeatures', value); } }),
                         el(ToggleControl, { label: __('Show 3-step order process', 'all-star-varsity-jackets'), checked: a.showProcess !== false, onChange: function (value) { set(props, 'showProcess', value); } }),

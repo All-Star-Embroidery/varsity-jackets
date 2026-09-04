@@ -157,6 +157,46 @@ final class ASEVJ_Product_Page {
         return '';
     }
 
+    private static function same_school_styles( int $school_id, int $current_style_id ): array {
+        if ( ! $school_id ) {
+            return [];
+        }
+
+        $style_ids = get_posts( [
+            'post_type'      => 'asevj_style',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'meta_key'       => '_asevj_school_id',
+            'meta_value'     => $school_id,
+            'orderby'        => [ 'menu_order' => 'ASC', 'title' => 'ASC' ],
+            'order'          => 'ASC',
+        ] );
+
+        $styles = [];
+        foreach ( $style_ids as $candidate_id ) {
+            $candidate_id = absint( $candidate_id );
+            $product_id = absint( get_post_meta( $candidate_id, '_asevj_woo_product_id', true ) );
+            if ( ! $product_id || 'product' !== get_post_type( $product_id ) || 'publish' !== get_post_status( $product_id ) ) {
+                continue;
+            }
+
+            $url = get_permalink( $product_id );
+            if ( ! $url ) {
+                continue;
+            }
+
+            $styles[] = [
+                'id'      => $candidate_id,
+                'name'    => get_the_title( $candidate_id ),
+                'url'     => $url,
+                'current' => $candidate_id === $current_style_id,
+            ];
+        }
+
+        return $styles;
+    }
+
     public static function render( array $attributes = [] ): string {
         $product_id = self::product_id( $attributes );
         $style_id = self::linked_style_id( $product_id );
@@ -181,6 +221,7 @@ final class ASEVJ_Product_Page {
         $features = self::features( $style_id );
         $images = self::gallery( $style_id, $product );
         $price_html = self::price_html( $style_id, $product );
+        $same_school_styles = self::same_school_styles( $school_id, $style_id );
 
         $settings = ASEVJ_Render::settings();
         $bg = self::color( $attributes, 'backgroundColor', '#F6F3EA' );
@@ -203,6 +244,7 @@ final class ASEVJ_Product_Page {
 
         $eyebrow = sanitize_text_field( (string) ( $attributes['eyebrow'] ?? 'CUSTOM VARSITY JACKET' ) );
         $price_label = sanitize_text_field( (string) ( $attributes['priceLabel'] ?? 'STARTING AT' ) );
+        $style_switcher_label = sanitize_text_field( (string) ( $attributes['styleSwitcherLabel'] ?? 'JACKET STYLES' ) );
         $price_note = sanitize_textarea_field( (string) ( $attributes['priceNote'] ?? 'Base jacket price. Lettering, patches, embroidery, names, numerals, and other customizations are additional.' ) );
         $customizations_heading = sanitize_text_field( (string) ( $attributes['customizationsHeading'] ?? 'Available Customizations' ) );
         $customizations_subheading = sanitize_text_field( (string) ( $attributes['customizationsSubheading'] ?? 'Build the jacket around your school, achievements, and style.' ) );
@@ -226,6 +268,7 @@ final class ASEVJ_Product_Page {
         $show_customizations = ! array_key_exists( 'showCustomizations', $attributes ) || ! empty( $attributes['showCustomizations'] );
         $show_process = ! array_key_exists( 'showProcess', $attributes ) || ! empty( $attributes['showProcess'] );
         $show_school_meta = ! array_key_exists( 'showSchoolMeta', $attributes ) || ! empty( $attributes['showSchoolMeta'] );
+        $show_style_switcher = ! array_key_exists( 'showStyleSwitcher', $attributes ) || ! empty( $attributes['showStyleSwitcher'] );
 
         ob_start();
         ?>
@@ -255,10 +298,25 @@ final class ASEVJ_Product_Page {
                         <div class="asevj-vjpp__eyebrow"><?php echo esc_html( $eyebrow ); ?></div>
                         <div class="asevj-vjpp__school">
                             <?php if ( $logo ) : ?><span class="asevj-vjpp__school-logo"><img src="<?php echo esc_url( $logo ); ?>" alt=""></span><?php endif; ?>
-                            <div><small><?php echo esc_html( $school_name ); ?></small><h1><?php echo esc_html( $style_name ); ?></h1></div>
+                            <div><h1><?php echo esc_html( $school_name ); ?></h1><p class="asevj-vjpp__style-name"><?php echo esc_html( $style_name ); ?></p></div>
                         </div>
                         <?php if ( $show_school_meta && ( $mascot || $location ) ) : ?>
                             <div class="asevj-vjpp__school-meta"><?php if ( $mascot ) : ?><span><?php echo esc_html( $mascot ); ?></span><?php endif; ?><?php if ( $location ) : ?><span><?php echo esc_html( $location ); ?></span><?php endif; ?></div>
+                        <?php endif; ?>
+
+                        <?php if ( $show_style_switcher && count( $same_school_styles ) > 1 ) : ?>
+                            <nav class="asevj-vjpp__style-switcher" aria-label="Other jacket styles for <?php echo esc_attr( $school_name ); ?>">
+                                <span class="asevj-vjpp__style-switcher-label"><?php echo esc_html( $style_switcher_label ); ?></span>
+                                <div class="asevj-vjpp__style-switcher-links">
+                                    <?php foreach ( $same_school_styles as $school_style ) : ?>
+                                        <?php if ( ! empty( $school_style['current'] ) ) : ?>
+                                            <span class="asevj-vjpp__style-choice is-active" aria-current="page"><?php echo esc_html( $school_style['name'] ); ?></span>
+                                        <?php else : ?>
+                                            <a class="asevj-vjpp__style-choice" href="<?php echo esc_url( $school_style['url'] ); ?>"><?php echo esc_html( $school_style['name'] ); ?></a>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            </nav>
                         <?php endif; ?>
 
                         <?php if ( $price_html ) : ?>
