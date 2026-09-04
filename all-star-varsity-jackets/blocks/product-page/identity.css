@@ -1,0 +1,71 @@
+/* v1.0.14 — school-first product identity + same-school style switcher */
+.asevj-vjpp__school h1{
+    margin:0;
+    font-family:var(--asevj-heading-font,inherit);
+    font-size:clamp(38px,4.1vw,64px);
+    line-height:.94;
+    font-weight:900;
+    letter-spacing:.005em;
+    color:var(--asevj-vjpp-navy,#101B31);
+    text-transform:uppercase;
+    overflow-wrap:anywhere;
+}
+.asevj-vjpp__style-name{
+    margin:8px 0 0;
+    font-family:var(--asevj-heading-font,inherit);
+    font-size:clamp(16px,1.45vw,22px);
+    line-height:1.15;
+    font-weight:750;
+    color:var(--asevj-vjpp-muted,#687385);
+}
+.asevj-vjpp__style-switcher{
+    margin:16px 0 0;
+    padding:14px 0 0;
+    border-top:1px solid #e2e6eb;
+}
+.asevj-vjpp__style-switcher-label{
+    display:block;
+    margin-bottom:8px;
+    font-size:9px;
+    line-height:1;
+    font-weight:900;
+    letter-spacing:.12em;
+    color:var(--asevj-vjpp-muted,#687385);
+    text-transform:uppercase;
+}
+.asevj-vjpp__style-switcher-links{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+}
+.asevj-vjpp__style-choice{
+    min-height:34px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:7px 11px;
+    border:1px solid #cfd5dd;
+    border-radius:3px;
+    background:transparent;
+    color:var(--asevj-vjpp-navy,#101B31)!important;
+    font-size:10px;
+    line-height:1.15;
+    font-weight:850;
+    text-decoration:none!important;
+    transition:border-color .15s ease,background-color .15s ease;
+}
+a.asevj-vjpp__style-choice:hover{
+    border-color:var(--asevj-vjpp-navy,#101B31);
+    background:color-mix(in srgb,var(--asevj-vjpp-navy,#101B31) 4%,transparent);
+}
+.asevj-vjpp__style-choice.is-active{
+    border-color:var(--asevj-vjpp-accent,#F2B619);
+    background:var(--asevj-vjpp-accent,#F2B619);
+    cursor:default;
+}
+@media(max-width:560px){
+    .asevj-vjpp__school h1{font-size:clamp(32px,10vw,46px)}
+    .asevj-vjpp__style-name{font-size:16px}
+    .asevj-vjpp__style-switcher-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .asevj-vjpp__style-choice{width:100%;text-align:center}
+}
