@@ -1,9 +1,9 @@
 {
-  "version": "1.0.7",
-  "name": "All Star Varsity Jackets 1.0.7",
+  "version": "1.0.8",
+  "name": "All Star Varsity Jackets 1.0.8",
   "prerelease": false,
-  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.7/all-star-varsity-jackets-1.0.7.zip",
+  "package": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.8/all-star-varsity-jackets-1.0.8.zip",
   "html_url": "https://github.com/All-Star-Embroidery/varsity-jackets",
-  "published_at": "2026-08-30 19:01:58 +0000",
-  "body": "Smaller Browse by School gallery for less scrolling."
+  "published_at": "2026-09-04 00:38:00 +0000",
+  "body": "Adds the dedicated Varsity Jacket Product Page Gutenberg block."
 }

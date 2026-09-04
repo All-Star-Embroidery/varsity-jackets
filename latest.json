@@ -1,13 +1,13 @@
 {
   "name": "All Star Varsity Jackets",
   "slug": "all-star-varsity-jackets",
-  "version": "1.0.7",
-  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.7/all-star-varsity-jackets-1.0.7.zip",
+  "version": "1.0.8",
+  "download_url": "https://github.com/All-Star-Embroidery/varsity-jackets/releases/download/v1.0.8/all-star-varsity-jackets-1.0.8.zip",
   "homepage": "https://github.com/All-Star-Embroidery/varsity-jackets",
   "requires": "6.4",
   "tested": "6.8",
   "requires_php": "8.0",
-  "last_updated": "2026-08-30 19:01:58 +0000",
-  "description": "All Star Embroidery's WordPress/WooCommerce varsity jacket system with school browsing, multiple jacket styles per school, responsive image galleries, structured ZIP/CSV imports, live Gutenberg blocks, WooCommerce product tools, and organization-owned automatic updates.",
-  "changelog": "<h4>1.0.7</h4><ul><li>Reduced the inline Browse by School gallery height to minimize scrolling.</li><li>Preserved uncropped jacket photography with responsive contain sizing.</li><li>Added smaller laptop/tablet/mobile gallery heights while leaving the detail popup unchanged.</li></ul>"
+  "last_updated": "2026-09-04 00:38:00 +0000",
+  "description": "All Star Embroidery's WordPress/WooCommerce varsity jacket system with school browsing, multi-style galleries, dedicated jacket product-page blocks, structured imports, and WooCommerce product tools.",
+  "changelog": "<h4>1.0.8</h4><ul><li>Added a dedicated Varsity Jacket Product Page Gutenberg block.</li><li>Added clear Starting at / base-price language with customization pricing disclosure.</li><li>Added responsive product gallery, customization showcase, call-to-order CTA, and extensive design controls.</li></ul>"
 }
