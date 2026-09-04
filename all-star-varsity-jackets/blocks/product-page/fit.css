@@ -1,0 +1,31 @@
+/* v1.0.12 — intrinsic scale-to-fit product gallery */
+.asevj-vjpp__main-image {
+    height: auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.asevj-vjpp__main-image img {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    object-position: center !important;
+}
+
+.asevj-vjpp__placeholder {
+    width: 100%;
+    min-height: clamp(280px, 42vw, 560px);
+}
+
+@media (max-width: 820px) {
+    .asevj-vjpp__main-image {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+}
