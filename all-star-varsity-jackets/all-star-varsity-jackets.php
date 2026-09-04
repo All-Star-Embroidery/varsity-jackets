@@ -2,7 +2,7 @@
 /**
  * Plugin Name: All Star Varsity Jackets
  * Description: Modular, highly customizable varsity jacket school/style showcase with optional WooCommerce product linking for All Star Embroidery.
- * Version: 1.0.10
+ * Version: 1.0.11
  * Author: All Star Embroidery
  * Requires at least: 6.4
  * Requires PHP: 8.0
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'ASEVJ_VERSION', '1.0.10' );
+define( 'ASEVJ_VERSION', '1.0.11' );
 define( 'ASEVJ_FILE', __FILE__ );
 define( 'ASEVJ_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASEVJ_URL', plugin_dir_url( __FILE__ ) );
@@ -70,7 +70,6 @@ final class ASEVJ_Plugin {
             $settings = [];
         }
 
-        // Beta 1 used a red accent that is not part of the current All Star website palette.
         unset( $settings['red'] );
         if ( empty( $settings['accent'] ) ) {
             $settings['accent'] = '#F2B619';
@@ -90,29 +89,15 @@ final class ASEVJ_Plugin {
     }
 
     public function register_frontend_assets(): void {
-        wp_register_style(
-            'asevj-frontend',
-            ASEVJ_URL . 'assets/frontend.css',
-            [],
-            ASEVJ_VERSION
-        );
-
-        wp_register_script(
-            'asevj-frontend',
-            ASEVJ_URL . 'assets/frontend.js',
-            [],
-            ASEVJ_VERSION,
-            true
-        );
+        wp_register_style( 'asevj-frontend', ASEVJ_URL . 'assets/frontend.css', [], ASEVJ_VERSION );
+        wp_register_script( 'asevj-frontend', ASEVJ_URL . 'assets/frontend.js', [], ASEVJ_VERSION, true );
     }
 
     public function activate(): void {
         ASEVJ_Post_Types::register_post_types();
-
         if ( false === get_option( 'asevj_design_settings', false ) ) {
             add_option( 'asevj_design_settings', ASEVJ_Admin::default_design_settings() );
         }
-
         update_option( 'asevj_version', ASEVJ_VERSION );
         flush_rewrite_rules();
     }
